@@ -23,6 +23,7 @@ public class MainActivity extends AppCompatActivity {
         // Example of a call to a native method
         TextView tv = findViewById(R.id.sample_text);
         tv.setText(stringFromJNI());
+//        test();
         tv.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -32,6 +33,12 @@ public class MainActivity extends AppCompatActivity {
         });
 
     }
+//
+//    protected native void onCreate(Bundle savedInstanceState);
+
+
+
+    public native void test();
 
     /**
      * A native method that is implemented by the 'native-lib' native library,

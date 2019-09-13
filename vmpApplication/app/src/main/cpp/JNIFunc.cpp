@@ -21,7 +21,7 @@
                 jvalue retValue;
                 dvmCallMethod(env, instance, method, &retValue, param0);
                 deleteVmMethod(method);
-                LOGD("jni function finish: %s", __func__);
+                LOGD("jni function finish");
             }
                 
                 extern "C"
@@ -38,7 +38,7 @@
                 jvalue retValue;
                 dvmCallMethod(env, instance, method, &retValue, param0);
                 deleteVmMethod(method);
-                LOGD("jni function finish: %s", __func__);
+                LOGD("jni function finish");
             }
                 
                 extern "C"
@@ -55,5 +55,5 @@
                 jvalue retValue;
                 dvmCallMethod(env, instance, method, &retValue, param0);
                 deleteVmMethod(method);
-                LOGD("jni function finish: %s", __func__);
+                LOGD("jni function finish");
             }

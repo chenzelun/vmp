@@ -1,0 +1,13 @@
+[
+{
+  "directory": "C:/Users/dalunlun/Documents/czl_git/vmp/TestApp/app/.cxx/cmake/release/armeabi-v7a",
+  "command": "C:\\Users\\dalunlun\\AppData\\Local\\Android\\Sdk\\ndk\\20.0.5594570\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang++.exe --target=armv7-none-linux-androideabi16 --gcc-toolchain=C:/Users/dalunlun/AppData/Local/Android/Sdk/ndk/20.0.5594570/toolchains/llvm/prebuilt/windows-x86_64 --sysroot=C:/Users/dalunlun/AppData/Local/Android/Sdk/ndk/20.0.5594570/toolchains/llvm/prebuilt/windows-x86_64/sysroot  -Dnative_lib_EXPORTS  -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -fno-addrsig -march=armv7-a -mthumb -Wa,--noexecstack -Wformat -Werror=format-security   -Oz -DNDEBUG  -fPIC   -o CMakeFiles\\native-lib.dir\\native-lib.cpp.o -c C:\\Users\\dalunlun\\Documents\\czl_git\\vmp\\TestApp\\app\\src\\main\\cpp\\native-lib.cpp",
+  "file": "C:\\Users\\dalunlun\\Documents\\czl_git\\vmp\\TestApp\\app\\src\\main\\cpp\\native-lib.cpp"
+},
+
+{
+  "directory": "C:/Users/dalunlun/Documents/czl_git/vmp/TestApp/app/.cxx/cmake/release/armeabi-v7a",
+  "command": "C:\\Users\\dalunlun\\AppData\\Local\\Android\\Sdk\\ndk\\20.0.5594570\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang++.exe --target=armv7-none-linux-androideabi16 --gcc-toolchain=C:/Users/dalunlun/AppData/Local/Android/Sdk/ndk/20.0.5594570/toolchains/llvm/prebuilt/windows-x86_64 --sysroot=C:/Users/dalunlun/AppData/Local/Android/Sdk/ndk/20.0.5594570/toolchains/llvm/prebuilt/windows-x86_64/sysroot  -Dhello_EXPORTS  -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -fno-addrsig -march=armv7-a -mthumb -Wa,--noexecstack -Wformat -Werror=format-security   -Oz -DNDEBUG  -fPIC   -o CMakeFiles\\hello.dir\\Hello.cpp.o -c C:\\Users\\dalunlun\\Documents\\czl_git\\vmp\\TestApp\\app\\src\\main\\cpp\\Hello.cpp",
+  "file": "C:\\Users\\dalunlun\\Documents\\czl_git\\vmp\\TestApp\\app\\src\\main\\cpp\\Hello.cpp"
+}
+]

@@ -63,8 +63,12 @@ void *myMmap(void *addr, size_t size, int prot, int flags, int fd, off_t offset)
 bool hookMmap();
 
 vector<void *>
-myOpenDexFilesFromOat(void *thiz, const char *dex_location, const char *oat_location,
-                      vector<string> *error_msgs);
+myOpenDexFilesFromOat_23(void *thiz, const char *dex_location, const char *oat_location,
+                         vector<string> *error_msgs);
+
+bool
+myOpenDexFilesFromOat_21_22(void *thiz, const char *dex_location, const char *oat_location,
+                            vector<string> *error_msgs, vector<void *> *dex_files);
 
 bool hookOpenDexFilesFromOat();
 
@@ -75,7 +79,9 @@ myDexFileOpen(const char *filename, const char *location, string *error_msg,
 bool hookDexFileOpen();
 
 void *
-myDexFileOpenFile(void *thiz, int fd, const char *location, bool verify, std::string *error_msg);
+myDexFileOpenFile_23(void *thiz, int fd, const char *location, bool verify, std::string *error_msg);
+
+void *myDexFileOpenFile_21_22(int fd, const char *location, bool verify, string *error_msg);
 
 bool hookDexFileOpenFile();
 

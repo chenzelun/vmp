@@ -76,16 +76,26 @@ Java_com_chend_testapp_MainActivity_hookFindClass(JNIEnv *tmp, jobject thiz, job
     env = tmp;
     HookJava(env, "dalvik/system/BaseDexClassLoader", "findClass", "(Ljava/lang/String;)Ljava/lang/Class;",
              reinterpret_cast<const void *>(myFindClass), &sysFindClass);
-}extern "C"
-JNIEXPORT void JNICALL
-Java_com_chend_testapp_MainActivity_onCreate(JNIEnv *env, jobject thiz,
-                                             jobject saved_instance_state) {
-    // TODO: implement onCreate()
-    jclass clazz  = (*env).GetObjectClass(thiz);
-    jclass superClazz = (*env).GetSuperclass(clazz);
-    jmethodID mOnCreate = (*env).GetMethodID(clazz, "onCreate", "(Landroid/os/Bundle;)V");
-    (*env).CallNonvirtualVoidMethod(thiz, superClazz, mOnCreate, saved_instance_state);
+}
 
-    jmethodID mSetContentView = (*env).GetMethodID(clazz, "setContentView", "(I)V");
-    (*env).CallVoidMethod(thiz, mSetContentView, -1300009);
+//extern "C"
+//JNIEXPORT void JNICALL
+//Java_com_chend_testapp_MainActivity_onCreate(JNIEnv *env, jobject thiz,
+//                                             jobject saved_instance_state) {
+//    // TODO: implement onCreate()
+//    jclass clazz  = (*env).GetObjectClass(thiz);
+//    jclass superClazz = (*env).GetSuperclass(clazz);
+//    jmethodID mOnCreate = (*env).GetMethodID(clazz, "onCreate", "(Landroid/os/Bundle;)V");
+//    (*env).CallNonvirtualVoidMethod(thiz, superClazz, mOnCreate, saved_instance_state);
+//
+//    jmethodID mSetContentView = (*env).GetMethodID(clazz, "setContentView", "(I)V");
+//    (*env).CallVoidMethod(thiz, mSetContentView, -1300009);
+//}
+
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_chend_testapp_MainActivity_test(JNIEnv *env, jobject thiz) {
+    jclass clazz = (*env).FindClass("com/chend/testapp/MainActivity$1");
+    LOGE("ok");
 }

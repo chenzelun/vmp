@@ -2284,7 +2284,7 @@ dvmCallMethod(JNIEnv *env, jobject instance, const VmMethod *method, jvalue *pRe
     va_list args;
     va_start(args, pResult);
     while (*desc != '\0') {
-        switch (*(desc++)) {
+        switch (*desc++) {
             case 'D':
             case 'J': {
                 u8 val = va_arg(args, u8);
@@ -2318,6 +2318,7 @@ dvmCallMethod(JNIEnv *env, jobject instance, const VmMethod *method, jvalue *pRe
     va_end(args);
 
     if (verifyCount != method->code->insSize) {
+        LOGE("desc: %s", dexStringById(method->dexFile, method->protoId->shortyIdx));
         LOGE("Got vfycount=%d insSize=%d for %s", verifyCount, method->code->insSize, method->name);
         GOTO_bail();
     }
@@ -2358,7 +2359,7 @@ jstring dvmResolveString(const VmMethod *method, u4 stringIdx) {
     const DexStringId *pStringId = dexGetStringId(pDexFile, stringIdx);
     const char *stringData = dexGetStringData(pDexFile, pStringId);
 
-    LOGD("+++ resolving string=%s, referrer is %s", stringData, method->clazzDescriptor);
+//    LOGD("+++ resolving string=%s, referrer is %s", stringData, method->clazzDescriptor);
     return (*env).NewStringUTF(stringData);
 }
 
@@ -2476,8 +2477,8 @@ jarray dvmAllocArrayByClass(const s4 length, const VmMethod *method, u4 classIdx
     const DexTypeId *pTypeId = dexGetTypeId(pDexFile, classIdx);
     const DexStringId *pStringId = dexGetStringId(pDexFile, pTypeId->descriptorIdx);
     string tmp = dexGetStringData(pDexFile, pStringId);
-    LOGD("--- resolving class %s (idx=%u referrer=%s)", tmp.data(), classIdx,
-         method->clazzDescriptor);
+//    LOGD("--- resolving class %s (idx=%u referrer=%s)", tmp.data(), classIdx,
+//         method->clazzDescriptor);
 
     /* must be array class */
     assert(tmp[0] == '[');
@@ -2651,7 +2652,7 @@ s4 dvmInterpretHandlePackedSwitch(const u2 *switchData, s4 testVal) {
 
     int index = testVal - firstKey;
     if (index < 0 || index >= size) {
-        LOGD("Value %d not found in switch (%d-%d)",
+        LOGE("Value %d not found in switch (%d-%d)",
              testVal, firstKey, firstKey + size - 1);
         return kInstrLen;
     }
@@ -2663,9 +2664,9 @@ s4 dvmInterpretHandlePackedSwitch(const u2 *switchData, s4 testVal) {
     assert(((u4) entries & 0x3) == 0);
 
     assert(index >= 0 && index < size);
-    LOGD("Value %d found in slot %d (goto 0x%02x)",
-         testVal, index,
-         s4FromSwitchData(&entries[index]));
+//    LOGD("Value %d found in slot %d (goto 0x%02x)",
+//         testVal, index,
+//         s4FromSwitchData(&entries[index]));
     return s4FromSwitchData(&entries[index]);
 }
 
@@ -2721,13 +2722,13 @@ s4 dvmInterpretHandleSparseSwitch(const u2 *switchData, s4 testVal) {
         } else if (testVal > foundVal) {
             lo = mid + 1;
         } else {
-            LOGD("Value %d found in entry %d (goto 0x%02x)",
-                 testVal, mid, s4FromSwitchData(&entries[mid]));
+//            LOGD("Value %d found in entry %d (goto 0x%02x)",
+//                 testVal, mid, s4FromSwitchData(&entries[mid]));
             return s4FromSwitchData(&entries[mid]);
         }
     }
 
-    LOGD("Value %d not found in switch", testVal);
+    LOGE("Value %d not found in switch", testVal);
     return kInstrLen;
 }
 
@@ -2753,10 +2754,11 @@ void dvmThrowArrayStoreExceptionIncompatibleElement(const jobject obj, const job
 bool dvmResolveField(const VmMethod *method, u4 ifieldIdx, jobject obj, s8 *res,
                      const char **ppName) {
     const DexFile *pDexFile = method->dexFile;
-    LOGD("--- resolving field %u (referrer=%s)", ifieldIdx, method->clazzDescriptor);
+//    LOGD("--- resolving field %u (referrer=%s)", ifieldIdx, method->clazzDescriptor);
     const DexFieldId *pFieldId = dexGetFieldId(pDexFile, ifieldIdx);
     jclass resClass = dvmResolveClass(method, pFieldId->classIdx);
     if (resClass == nullptr) {
+        LOGE("can't found jclass");
         return false;
     }
     jfieldID resField = nullptr;
@@ -2768,17 +2770,9 @@ bool dvmResolveField(const VmMethod *method, u4 ifieldIdx, jobject obj, s8 *res,
         resField = (*env).GetFieldID(resClass, name, sign);
     }
     if (resField == nullptr) {
+        LOGE("can't found field id.");
         return false;
     }
-
-    if (obj == nullptr) {
-        LOGD("    field %u is %s.%s", ifieldIdx, ((StaticField *) resField)->clazz->descriptor,
-             ((StaticField *) resField)->name);
-    } else {
-        LOGD("    field %u is %s.%s", ifieldIdx, ((InstField *) resField)->clazz->descriptor,
-             ((InstField *) resField)->name);
-    }
-
     jvalue tmpVal;
     switch (sign[0]) {
         case 'I':
@@ -2850,10 +2844,11 @@ bool dvmResolveField(const VmMethod *method, u4 ifieldIdx, jobject obj, s8 *res,
 bool dvmResolveSetField(const VmMethod *method, u4 ifieldIdx, jobject obj, u8 res,
                         const char **ppName) {
     const DexFile *pDexFile = method->dexFile;
-    LOGD("--- resolving field %u (referrer=%s)", ifieldIdx, method->clazzDescriptor);
+//    LOGD("--- resolving field %u (referrer=%s)", ifieldIdx, method->clazzDescriptor);
     const DexFieldId *pFieldId = dexGetFieldId(pDexFile, ifieldIdx);
     jclass resClass = dvmResolveClass(method, pFieldId->classIdx);
     if (resClass == nullptr) {
+        LOGE("can't found jclass.");
         return false;
     }
     jfieldID resField = nullptr;
@@ -2865,15 +2860,8 @@ bool dvmResolveSetField(const VmMethod *method, u4 ifieldIdx, jobject obj, u8 re
         resField = (*env).GetFieldID(resClass, name, sign);
     }
     if (resField == nullptr) {
+        LOGE("can't found field id.");
         return false;
-    }
-
-    if (obj == nullptr) {
-        LOGD("    field %u is %s.%s", ifieldIdx, ((StaticField *) resField)->clazz->descriptor,
-             ((StaticField *) resField)->name);
-    } else {
-        LOGD("    field %u is %s.%s", ifieldIdx, ((InstField *) resField)->clazz->descriptor,
-             ((InstField *) resField)->name);
     }
 
     jvalue tmpVal;
@@ -3343,40 +3331,80 @@ const CodeItemData *getCodeItem(const VmMethod *method) {
     return getCodeItem(key);
 }
 
+
+const DexFile *initDexFileInArt(const uint8_t *buf, size_t size) {
+    auto *pDexHeader = (DexHeader *) buf;
+//    for (int i = 0; i < 8; i++) {
+//        LOGD("dex file buf[%d]: %c", i, buf[i]);
+//    }
+
+    auto *pDexFile = new DexFile();
+    pDexFile->baseAddr = buf;
+    pDexFile->pHeader = pDexHeader;
+    pDexFile->pStringIds = (const DexStringId *) (pDexFile->baseAddr +
+                                                  pDexHeader->stringIdsOff);
+    pDexFile->pTypeIds = (const DexTypeId *) (pDexFile->baseAddr + pDexHeader->typeIdsOff);
+    pDexFile->pFieldIds = (const DexFieldId *) (pDexFile->baseAddr + pDexHeader->fieldIdsOff);
+    pDexFile->pMethodIds = (const DexMethodId *) (pDexFile->baseAddr +
+                                                  pDexHeader->methodIdsOff);
+    pDexFile->pProtoIds = (const DexProtoId *) (pDexFile->baseAddr + pDexHeader->protoIdsOff);
+    pDexFile->pClassDefs = (const DexClassDef *) (pDexFile->baseAddr +
+                                                  pDexHeader->classDefsOff);
+    pDexFile->pLinkData = (const DexLink *) (pDexFile->baseAddr + pDexHeader->linkOff);
+    // check dex file size
+    if (pDexHeader->fileSize != size) {
+        LOGE("ERROR: stored file size (%d) != expected (%d)", pDexHeader->fileSize, size);
+    }
+    return pDexFile;
+}
+
 const VmMethod *initVmMethodNoCode(jmethodID jniMethod) {
     auto *method = new VmMethod();
     if (isArtVm(env)) {
-        const auto *artMethod = reinterpret_cast<const ArtMethod *>(jniMethod);
-        const auto *artClass = reinterpret_cast<const ArtClass *>(artMethod->declaring_class);
-        const auto *artDexCache = reinterpret_cast<const ArtDexCache *>(artClass->dex_cache);
-        const auto *artDexFile = reinterpret_cast<const ArtDexFile *>(artDexCache->dex_file);
-        auto *pDexHeader = (DexHeader *) artDexFile->begin;
+        const ArtMethod_21_22 *artMethod_21_22 = nullptr;
+        const ArtMethod_23 *artMethod_23 = nullptr;
 
-        auto *pDexFile = new DexFile();
-        pDexFile->baseAddr = artDexFile->begin;
-        pDexFile->pHeader = pDexHeader;
-        pDexFile->pStringIds = (const DexStringId *) (pDexFile->baseAddr +
-                                                      pDexHeader->stringIdsOff);
-        pDexFile->pTypeIds = (const DexTypeId *) (pDexFile->baseAddr + pDexHeader->typeIdsOff);
-        pDexFile->pFieldIds = (const DexFieldId *) (pDexFile->baseAddr + pDexHeader->fieldIdsOff);
-        pDexFile->pMethodIds = (const DexMethodId *) (pDexFile->baseAddr +
-                                                      pDexHeader->methodIdsOff);
-        pDexFile->pProtoIds = (const DexProtoId *) (pDexFile->baseAddr + pDexHeader->protoIdsOff);
-        pDexFile->pClassDefs = (const DexClassDef *) (pDexFile->baseAddr +
-                                                      pDexHeader->classDefsOff);
-        pDexFile->pLinkData = (const DexLink *) (pDexFile->baseAddr + pDexHeader->linkOff);
-        // check dex file size
-        if (pDexHeader->fileSize != artDexFile->size) {
-            LOGE("ERROR: stored file size (%d) != expected (%d)",
-                 pDexHeader->fileSize, artDexFile->size);
+        const ArtClass *artClass = nullptr;
+        const ArtDexCache *artDexCache = nullptr;
+        const ArtDexFile *artDexFile = nullptr;
+        const DexMethodId *pDexMethodId = nullptr;
+
+        switch (android_get_device_api_level()) {
+            case __ANDROID_API_L__:
+            case __ANDROID_API_L_MR1__:
+                artMethod_21_22 = reinterpret_cast<const ArtMethod_21_22 *>(jniMethod);
+                artClass = reinterpret_cast<const ArtClass *>(artMethod_21_22->declaring_class);
+                artDexCache = reinterpret_cast<const ArtDexCache *>(artClass->dex_cache);
+                artDexFile = reinterpret_cast<const ArtDexFile *>(artDexCache->dex_file);
+                method->dexFile = initDexFileInArt(artDexFile->begin, artDexFile->size);
+                pDexMethodId = dexGetMethodId(method->dexFile, artMethod_21_22->dex_method_index);
+                method->protoId = dexGetProtoId(method->dexFile, pDexMethodId->protoIdx);
+                method->accessFlags = artMethod_21_22->access_flags;
+                method->clazzDescriptor = dexStringByTypeIdx(method->dexFile,
+                                                             pDexMethodId->classIdx);
+                method->name = dexStringById(method->dexFile, pDexMethodId->nameIdx);
+                break;
+
+            case __ANDROID_API_M__:
+                artMethod_23 = reinterpret_cast<const ArtMethod_23 *>(jniMethod);
+                artClass = reinterpret_cast<const ArtClass *>(artMethod_23->declaring_class);
+                artDexCache = reinterpret_cast<const ArtDexCache *>(artClass->dex_cache);
+                artDexFile = reinterpret_cast<const ArtDexFile *>(artDexCache->dex_file);
+                method->dexFile = initDexFileInArt(artDexFile->begin, artDexFile->size);
+                pDexMethodId = dexGetMethodId(method->dexFile, artMethod_23->dex_method_index);
+                method->protoId = dexGetProtoId(method->dexFile, pDexMethodId->protoIdx);
+                method->accessFlags = artMethod_23->access_flags;
+                method->clazzDescriptor = dexStringByTypeIdx(method->dexFile,
+                                                             pDexMethodId->classIdx);
+                method->name = dexStringById(method->dexFile, pDexMethodId->nameIdx);
+                break;
+
+            default:
+                assert(false);
         }
+//        LOGD("%s", method->clazzDescriptor);
+//        LOGD("%s", method->name);
 
-        method->dexFile = pDexFile;
-        const auto *pDexMethodId = dexGetMethodId(pDexFile, artMethod->dex_method_index);
-        method->protoId = dexGetProtoId(pDexFile, pDexMethodId->protoIdx);
-        method->accessFlags = artMethod->access_flags;
-        method->clazzDescriptor = dexStringByTypeIdx(pDexFile, pDexMethodId->classIdx);
-        method->name = dexStringById(pDexFile, pDexMethodId->nameIdx);
     } else {
         const auto *dvmMethod = reinterpret_cast<const Method *>(jniMethod);
         method->dexFile = dvmMethod->clazz->pDvmDex->pDexFile;
@@ -3427,8 +3455,6 @@ const string getClassDescriptorByJClass(jclass clazz) {
 void deleteVmMethod(const VmMethod *method) {
     if (method == nullptr) {
         return;
-    } else if (method->code != nullptr) {
-        delete method->code;
     }
     if (isArtVm(env)) {
         delete method->dexFile;

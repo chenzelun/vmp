@@ -3,7 +3,9 @@
     <words>
       <w>bytearray</w>
       <w>clinit</w>
+      <w>jmethod</w>
       <w>jvalue</w>
+      <w>logd</w>
     </words>
   </dictionary>
 </component>

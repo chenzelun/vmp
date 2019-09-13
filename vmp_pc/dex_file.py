@@ -1,5 +1,4 @@
 import logging
-import os
 from abc import ABCMeta, abstractmethod
 from datetime import date
 from enum import IntEnum, unique
@@ -1796,6 +1795,7 @@ class JNIFuncBuilder:
             sign = self.dex.get_method_signature(method_id.proto_idx)
 
             key = bytearray(sign + method_name + class_name, encoding='ascii')
+            self.log.debug('code item key0: %s', key)
             key.reverse()
             self.log.debug(' code item key: %s', key)
             key.append(0)
@@ -1900,7 +1900,7 @@ class JNIFuncBuilder:
                 jvalue retValue;
                 dvmCallMethod(env, instance, method, &retValue{param});
                 deleteVmMethod(method);
-                LOGD("jni function finish: %s", __func__);
+                LOGD("jni function finish");
             """.format(method_name=method_name, method_sign=sign, param=param)
 
             jvalue_type = JNIFuncBuilder.format_jvalue_type(self.dex.get_string_by_type_idx(proto_id.return_type_idx))

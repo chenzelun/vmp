@@ -29,6 +29,7 @@ struct VmField{
 
 using namespace std;
 
+const DexFile* initDexFileInArt(const uint8_t *buf, size_t size);
 
 jmethodID dvmResolveMethod(const VmMethod *method, u4 methodIdx, MethodType methodType,
                            jclass *methodToCallClazz);
