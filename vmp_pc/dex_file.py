@@ -1881,7 +1881,7 @@ class JNIFuncBuilder:
 
             self.jni_func_buf += """{
                 
-                LOGD("jni function start: %s", __func__);
+                LOG_D("jni function start: %s", __func__);
             """
             if method.access_flags & AccessFlag.ACC_STATIC:
                 self.jni_func_buf += r'    jobject instance = clazz_type;'
@@ -1900,7 +1900,7 @@ class JNIFuncBuilder:
                 jvalue retValue;
                 dvmCallMethod(env, instance, method, &retValue{param});
                 deleteVmMethod(method);
-                LOGD("jni function finish");
+                LOG_D("jni function finish");
             """.format(method_name=method_name, method_sign=sign, param=param)
 
             jvalue_type = JNIFuncBuilder.format_jvalue_type(self.dex.get_string_by_type_idx(proto_id.return_type_idx))

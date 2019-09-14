@@ -41,7 +41,8 @@
     "gradleBuildOutputFolder": "C:\\Users\\dalunlun\\Documents\\czl_git\\vmp\\TestApp\\app\\.cxx\\cxx\\release",
     "isDebuggableEnabled": false,
     "validAbiList": [
-      "ARMEABI_V7A"
+      "ARMEABI_V7A",
+      "ARM64_V8A"
     ],
     "buildTargetSet": []
   },

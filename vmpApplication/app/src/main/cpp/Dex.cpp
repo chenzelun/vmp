@@ -14,11 +14,11 @@ int
 
 int myDvmRawDexFileOpen(const char *fileName, const char *odexOutputName, RawDexFile **ppRawDexFile,
                         bool isBootstrap) {
-    LOGD("fileName: %s", fileName);
+    LOG_D("fileName: %s", fileName);
     if (strcmp(fileName, gDexFileHelper->fakeClassesDexName.data()) == 0) {
-        LOGD("fake dex, ha ha ha...");
+        LOG_D("fake dex, ha ha ha...");
         *ppRawDexFile = createRawDexFileFromMemoryDalvik();
-        LOGD("*ppRawDexFile: %p", *ppRawDexFile);
+        LOG_D("*ppRawDexFile: %p", *ppRawDexFile);
 
         return *ppRawDexFile == nullptr ? -1 : 0;
     }
@@ -37,29 +37,29 @@ void hookDvmRawDexFileOpen() {
 
 
 void loadDexFromMemory() {
-    LOGD("start, loadDexFromMemory()");
+    LOG_D("start, loadDexFromMemory()");
     JNIEnv *env = gDexFileHelper->env;
     // update mCookie
-    LOGD("0");
+    LOG_D("0");
     jobject oClassLoader = getClassLoader(env);
     jclass cClassLoader = (*env).GetObjectClass(oClassLoader);
     jclass cBaseDexClassLoader = (*env).GetSuperclass(cClassLoader);
     jfieldID fPathList = (*env).GetFieldID(cBaseDexClassLoader, "pathList",
                                            "Ldalvik/system/DexPathList;");
     jobject oPathList = (*env).GetObjectField(oClassLoader, fPathList);
-    LOGD("1");
+    LOG_D("1");
     jclass cDexPathList = (*env).GetObjectClass(oPathList);
     jfieldID fDexElements = (*env).GetFieldID(cDexPathList, "dexElements",
                                               "[Ldalvik/system/DexPathList$Element;");
     auto oDexElements =
             reinterpret_cast<jobjectArray>((*env).GetObjectField(oPathList, fDexElements));
-    LOGD("2");
+    LOG_D("2");
     if (isArtVm(env)) {
         hookArtOpenDexFiles();
     } else {
         hookDvmRawDexFileOpen();
     }
-    LOGD("3");
+    LOG_D("3");
     jclass cDexFile = (*env).FindClass("dalvik/system/DexFile");
     jmethodID mLoadDex =
             (*env).GetStaticMethodID(cDexFile, "loadDex",
@@ -68,23 +68,23 @@ void loadDexFromMemory() {
     jstring odexDir = (*env).NewStringUTF(getOdexDir(env).data());
     jobject oDexFile = (*env).CallStaticObjectMethod(cDexFile, mLoadDex, fakeClassesDexName,
                                                      odexDir, 0);
-    LOGD("3.5");
+    LOG_D("3.5");
     jfieldID fMCookie = nullptr;
     switch (android_get_device_api_level()){
         case __ANDROID_API_K__:
             fMCookie = (*env).GetFieldID(cDexFile, "mCookie", "I");
-            LOGD("new cookie: 0x%08x", (*env).GetIntField(oDexFile, fMCookie));
+            LOG_D("new cookie: 0x%08x", (*env).GetIntField(oDexFile, fMCookie));
             break;
 
         case __ANDROID_API_L__:
         case __ANDROID_API_L_MR1__:
             fMCookie = (*env).GetFieldID(cDexFile, "mCookie", "J");
-            LOGD("new cookie: 0x%08lld", (*env).GetLongField(oDexFile, fMCookie));
+            LOG_D("new cookie: 0x%08lld", (*env).GetLongField(oDexFile, fMCookie));
             break;
 
         case __ANDROID_API_M__:
             fMCookie = (*env).GetFieldID(cDexFile, "mCookie", "Ljava/lang/Object;");
-            LOGD("new cookie: %p", (*env).GetObjectField(oDexFile, fMCookie));
+            LOG_D("new cookie: %p", (*env).GetObjectField(oDexFile, fMCookie));
             break;
 
         default:
@@ -94,9 +94,9 @@ void loadDexFromMemory() {
     jmethodID mElement = (*env).GetMethodID(cElement, "<init>",
                                             "(Ljava/io/File;ZLjava/io/File;Ldalvik/system/DexFile;)V");
     jobject oElement = (*env).NewObject(cElement, mElement, nullptr, JNI_FALSE, nullptr, oDexFile);
-    LOGD("5");
+    LOG_D("5");
     jsize oldLenDexElements = (*env).GetArrayLength(oDexElements);
-    LOGD("oldLenDexElements: %d", oldLenDexElements);
+    LOG_D("oldLenDexElements: %d", oldLenDexElements);
 
     jobjectArray oDexElementsNew = (*env).NewObjectArray(oldLenDexElements + 1, cElement, nullptr);
     for (int i = 0; i < oldLenDexElements; i++) {
@@ -104,21 +104,21 @@ void loadDexFromMemory() {
         (*env).SetObjectArrayElement(oDexElementsNew, i, t);
     }
     (*env).SetObjectArrayElement(oDexElementsNew, oldLenDexElements, oElement);
-    LOGD("6");
+    LOG_D("6");
 
     (*env).SetObjectField(oPathList, fDexElements, oDexElementsNew);
-    LOGD("7");
+    LOG_D("7");
     (*env).DeleteLocalRef(cClassLoader);
     (*env).DeleteLocalRef(cBaseDexClassLoader);
     (*env).DeleteLocalRef(cDexFile);
     (*env).DeleteLocalRef(cDexPathList);
     (*env).DeleteLocalRef(cElement);
-    LOGD("finish, loadDexFromMemory()");
+    LOG_D("finish, loadDexFromMemory()");
 }
 
 
 RawDexFile *createRawDexFileFromMemoryDalvik() {
-    LOGD("start, createRawDexFileFromMemoryDalvik()");
+    LOG_D("start, createRawDexFileFromMemoryDalvik()");
     /*
      * Set up the basic raw data pointers of a DexFile. This function isn't
      * meant for general use.
@@ -138,10 +138,10 @@ RawDexFile *createRawDexFileFromMemoryDalvik() {
 
     // check dex file size
     if (pDexHeader->fileSize != gDexFileHelper->dexLen) {
-        LOGE("ERROR: stored file size (%d) != expected (%d)",
+        LOG_E("ERROR: stored file size (%d) != expected (%d)",
              pDexHeader->fileSize, gDexFileHelper->dexLen);
     }
-    LOGD("init pDexFile, finish...");
+    LOG_D("init pDexFile, finish...");
 
     /*
      * Create auxillary data structures.
@@ -179,7 +179,7 @@ RawDexFile *createRawDexFileFromMemoryDalvik() {
     pDvmDex->pResMethods = (struct Method **) blob;
     blob += methodSize;
     pDvmDex->pResFields = (struct Field **) blob;
-    LOGD("+++ DEX %p: allocateAux (%d+%d+%d+%d)*4 = %d bytes",
+    LOG_D("+++ DEX %p: allocateAux (%d+%d+%d+%d)*4 = %d bytes",
          pDvmDex, stringSize / 4, classSize / 4, methodSize / 4, fieldSize / 4,
          stringSize + classSize + methodSize + fieldSize);
 
@@ -202,7 +202,7 @@ RawDexFile *createRawDexFileFromMemoryDalvik() {
     pDvmDex->memMap.baseAddr = pDvmDex->memMap.addr = (void *) data;
     pDvmDex->memMap.baseLength = pDvmDex->memMap.length = pDexHeader->fileSize;
     pDvmDex->isMappedReadOnly = false;
-    LOGD("init pDvmDex, finish...");
+    LOG_D("init pDvmDex, finish...");
 
     /*
      * Create the class lookup table.  This will eventually be appended
@@ -213,11 +213,11 @@ RawDexFile *createRawDexFileFromMemoryDalvik() {
      */
     DexClassLookup *pClassLookup = nullptr;
     int numEntries = dexRoundUpPower2(pDexFile->pHeader->classDefsSize * 2);
-    LOGD("numEntries: %d", numEntries);
+    LOG_D("numEntries: %d", numEntries);
     int allocSize = offsetof(DexClassLookup, table) + numEntries * sizeof(pClassLookup->table[0]);
-    LOGD("allocSize: %d, table sizeof: %d", allocSize, sizeof(pClassLookup->table[0]));
+    LOG_D("allocSize: %d, table sizeof: %d", allocSize, sizeof(pClassLookup->table[0]));
     pClassLookup = (DexClassLookup *) new u1[allocSize]();
-    LOGD("pClassLookup: %p", pClassLookup);
+    LOG_D("pClassLookup: %p", pClassLookup);
     pClassLookup->size = allocSize;
     pClassLookup->numEntries = numEntries;
     int maxProbes = 0;
@@ -247,23 +247,23 @@ RawDexFile *createRawDexFileFromMemoryDalvik() {
         }
         totalProbes += numProbes;
     }
-    LOGD("Class lookup: classes=%d slots=%d (%d%% occ) alloc=%d total=%d max=%d",
+    LOG_D("Class lookup: classes=%d slots=%d (%d%% occ) alloc=%d total=%d max=%d",
          pDexFile->pHeader->classDefsSize, numEntries,
          (100 * pDexFile->pHeader->classDefsSize) / numEntries,
          allocSize, totalProbes, maxProbes);
-    LOGD("init pClassLookup, finish...");
+    LOG_D("init pClassLookup, finish...");
 
     pDvmDex->pDexFile->pClassLookup = pClassLookup;
 
     auto *pRawDexFile = new RawDexFile();
     pRawDexFile->pDvmDex = pDvmDex;
-    LOGD("finish, createRawDexFileFromMemoryDalvik()");
+    LOG_D("finish, createRawDexFileFromMemoryDalvik()");
     return pRawDexFile;
 }
 
 
 void initDexFileHelper(DexFileHelper **ppDexFileHelper, const ConfigFileProxy *pConfigFileProxy) {
-    LOGD("start, initDexFileHelper(DexFucker **ppDexFileHelper, const ConfigFileProxy *pConfigFileProxy)");
+    LOG_D("start, initDexFileHelper(DexFucker **ppDexFileHelper, const ConfigFileProxy *pConfigFileProxy)");
 
     auto *pDexFileHelper = new DexFileHelper();
     pDexFileHelper->env = pConfigFileProxy->env;
@@ -303,16 +303,16 @@ void initDexFileHelper(DexFileHelper **ppDexFileHelper, const ConfigFileProxy *p
         }
         cur += valueSize;
         pDexFileHelper->codeItem[key] = pCodeItemData;
-        LOGD("codeItem[0x%08x]: %s", i, key.data());
-        LOGD("     registersSize: %d", pCodeItemData->registersSize);
-        LOGD("           insSize: %d", pCodeItemData->insSize);
-        LOGD("           outSize: %d", pCodeItemData->outSize);
-        LOGD("         triesSize: %d", pCodeItemData->triesSize);
-        LOGD("         insnsSize: %d", pCodeItemData->insnsSize);
+        LOG_D("codeItem[0x%08x]: %s", i, key.data());
+        LOG_D("     registersSize: %d", pCodeItemData->registersSize);
+        LOG_D("           insSize: %d", pCodeItemData->insSize);
+        LOG_D("           outSize: %d", pCodeItemData->outSize);
+        LOG_D("         triesSize: %d", pCodeItemData->triesSize);
+        LOG_D("         insnsSize: %d", pCodeItemData->insnsSize);
     }
-    LOGD("code item size: %d, map size: %d", size, pDexFileHelper->codeItem.size());
+    LOG_D("code item size: %d, map size: %d", size, pDexFileHelper->codeItem.size());
     *ppDexFileHelper = pDexFileHelper;
-    LOGD("finish, initDexFileHelper(DexFucker **ppDexFileHelper, const ConfigFileProxy *pConfigFileProxy)");
+    LOG_D("finish, initDexFileHelper(DexFucker **ppDexFileHelper, const ConfigFileProxy *pConfigFileProxy)");
 }
 
 const CodeItemData *getCodeItem(const string &key) {
@@ -320,7 +320,7 @@ const CodeItemData *getCodeItem(const string &key) {
     if (it != gDexFileHelper->codeItem.end()) {
         return it->second;
     }
-    LOGE("can't found code item data by key: %s", key.data());
+    LOG_E("can't found code item data by key: %s", key.data());
     return nullptr;
 }
 
@@ -348,9 +348,9 @@ int myFstat(int fp, struct stat *st) {
     pid_t pid = getpid();
     sprintf(fdlinkstr, "/proc/%d/fd/%d", pid, fp);
     readlink(fdlinkstr, linkPath, 256);
-//    LOGD("fstat file path: %s", linkPath);
+//    LOG_D("fstat file path: %s", linkPath);
     if (strcmp(linkPath, gDexFileHelper->fakeClassesDexName.data()) == 0) {
-        LOGD("myFstat");
+        LOG_D("myFstat");
         st->st_size = gDexFileHelper->dexLen;
     }
     return retValue;
@@ -377,11 +377,11 @@ void *myMmap(void *addr, size_t size, int prot, int flags, int fd, off_t offset)
     pid_t pid = getpid();
     sprintf(fdlinkstr, "/proc/%d/fd/%d", pid, fd);
     readlink(fdlinkstr, linkPath, 256);
-//    LOGD("mmap file path: %s", linkPath);
+//    LOG_D("mmap file path: %s", linkPath);
     if (strcmp(linkPath, gDexFileHelper->fakeClassesDexName.data()) == 0) {
-        LOGD("myMmap");
-        LOGD("dexLen:                  0x%08x", gDexFileHelper->dexLen);
-        LOGD("page_aligned_byte_count: 0x%08x", size);
+        LOG_D("myMmap");
+        LOG_D("dexLen:                  0x%08x", gDexFileHelper->dexLen);
+        LOG_D("page_aligned_byte_count: 0x%08x", size);
         auto *retValue = (uint8_t *) (sysMmap(addr, size,
                                               PROT_READ | PROT_WRITE,
                                               MAP_ANONYMOUS | MAP_PRIVATE, -1, 0));
@@ -392,7 +392,7 @@ void *myMmap(void *addr, size_t size, int prot, int flags, int fd, off_t offset)
             memset(retValue + gDexFileHelper->dexLen, 0, off);
         }
         mprotect(retValue, size, prot);
-        LOGD("mmap(%p), success", (void *) retValue);
+        LOG_D("mmap(%p), success", (void *) retValue);
         return retValue;
     }
     return sysMmap(addr, size, prot, flags, fd, offset);
@@ -449,17 +449,17 @@ vector<void *>
 vector<void *>
 myOpenDexFilesFromOat_23(void *thiz, const char *dex_location, const char *oat_location,
                       vector<string> *error_msgs) {
-    LOGD("dex_location: %s", dex_location);
-    LOGD("oat_location: %s", oat_location);
+    LOG_D("dex_location: %s", dex_location);
+    LOG_D("oat_location: %s", oat_location);
     if (strcmp(dex_location, gDexFileHelper->fakeClassesDexName.data()) == 0) {
         vector<void *> dexFiles;
         string error_msg;
         if (!sysDexFileOpen(dex_location, dex_location, &error_msg, &dexFiles)) {
-            LOGE("Failed to open dex files from %s", dex_location);
-            LOGE("DexFileOpen error: %s", error_msg.data());
+            LOG_E("Failed to open dex files from %s", dex_location);
+            LOG_E("DexFileOpen error: %s", error_msg.data());
             error_msgs->push_back("Failed to open dex files from " + string(dex_location));
         }
-        LOGD("DexFileOpen, success");
+        LOG_D("DexFileOpen, success");
         return dexFiles;
     }
     return sysOpenDexFilesFromOat_23(thiz, dex_location, oat_location, error_msgs);
@@ -472,16 +472,16 @@ bool
 bool
 myOpenDexFilesFromOat_21_22(void *thiz, const char *dex_location, const char *oat_location,
                             vector<string> *error_msgs, vector<void *>* dex_files){
-    LOGD("dex_location: %s", dex_location);
-    LOGD("oat_location: %s", oat_location);
+    LOG_D("dex_location: %s", dex_location);
+    LOG_D("oat_location: %s", oat_location);
     if (strcmp(dex_location, gDexFileHelper->fakeClassesDexName.data()) == 0) {
         string error_msg;
         if (!sysDexFileOpen(dex_location, dex_location, &error_msg, dex_files)) {
-            LOGE("Failed to open dex files from %s", dex_location);
-            LOGE("DexFileOpen error: %s", error_msg.data());
+            LOG_E("Failed to open dex files from %s", dex_location);
+            LOG_E("DexFileOpen error: %s", error_msg.data());
             error_msgs->push_back("Failed to open dex files from " + string(dex_location));
         }
-        LOGD("DexFileOpen, success");
+        LOG_D("DexFileOpen, success");
         return true;
     }
     return sysOpenDexFilesFromOat_21_22(thiz, dex_location, oat_location, error_msgs, dex_files);
@@ -519,7 +519,7 @@ void *
                       string *error_msg) = nullptr;
 
 void *myDexFileOpenFile_23(void *thiz, int fd, const char *location, bool verify, string *error_msg) {
-    LOGD("location: %s, verify: %s", location, verify ? "true" : "false");
+    LOG_D("location: %s, verify: %s", location, verify ? "true" : "false");
     return sysDexFileOpenFile_23(thiz, fd, location, false, error_msg);
 }
 
@@ -528,7 +528,7 @@ void *
                       string *error_msg) = nullptr;
 
 void *myDexFileOpenFile_21_22(int fd, const char *location, bool verify, string *error_msg) {
-    LOGD("location: %s, verify: %s", location, verify ? "true" : "false");
+    LOG_D("location: %s, verify: %s", location, verify ? "true" : "false");
     return sysDexFileOpenFile_21_22(fd, location, false, error_msg);
 }
 

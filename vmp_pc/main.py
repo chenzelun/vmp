@@ -29,7 +29,7 @@ if __name__ == '__main__':
 
         shell = Shell(no_shell=True)
         shell.unzip_in_apk()
-        shell.encrypt_src_dex()
+        shell.encrypt_in_dex()
 
         # cp the jni_func.cpp and jni_func.h to shell app and rebuild it
         if os.path.exists(shell_cpp_path + '/' + shell.jni_func_file_name):

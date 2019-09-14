@@ -10,17 +10,17 @@
 #include "include/AndHook.h"
 
 bool HookNativeInline(const char *soPath, const char *signature, void *my_func, void **ori_func) {
-    LOGD("start HookNativeInline...");
+    LOG_D("start HookNativeInline...");
     auto *lib = AKGetImageByName(soPath);
     if (lib == nullptr) {
-        LOGE("can't find so by the path: %s", soPath);
+        LOG_E("can't find so by the path: %s", soPath);
         return false;
     }
-    LOGD("lib base address: %p", AKGetBaseAddress(lib));
+    LOG_D("lib base address: %p", AKGetBaseAddress(lib));
 
     auto *symbol = AKFindSymbol(lib, signature);
     if (symbol == nullptr) {
-        LOGE("can't find the symbol: %s", signature);
+        LOG_E("can't find the symbol: %s", signature);
         AKCloseImage(lib);
         return false;
     }
@@ -32,7 +32,7 @@ bool HookNativeInline(const char *soPath, const char *signature, void *my_func, 
 bool
 HookJava(JNIEnv *env, const char *clazzPath, const char *methodName, const char *methodSignature,
          const void *my_func, jmethodID *ori_func) {
-    LOGD("start HookJava...");
+    LOG_D("start HookJava...");
     // init AndHook Java
     static bool initAndHookJava = true;
     if (initAndHookJava) {
@@ -40,11 +40,11 @@ HookJava(JNIEnv *env, const char *clazzPath, const char *methodName, const char 
         JavaVM *vm = nullptr;
         (*env).GetJavaVM(&vm);
         AKInitializeOnce(env, vm);
-        LOGD("init java hook vm...");
+        LOG_D("init java hook vm...");
     }
     jclass clazz = (*env).FindClass(clazzPath);
     if (clazz == nullptr) {
-        LOGE("can't find the class by the path: %s", clazzPath);
+        LOG_E("can't find the class by the path: %s", clazzPath);
         return false;
     }
     AKJavaHookMethod(env, clazz, methodName, methodSignature, my_func, ori_func);
@@ -73,7 +73,7 @@ jobject getAppContext(JNIEnv *env) {
                 "()Landroid/content/Context;");
         jobject oContext = (*env).CallObjectMethod(oCurrentApplication, mGetApplicationContext);
         appContext = (*env).NewGlobalRef(oContext);
-        LOGD("getAppContext success first....");
+        LOG_D("getAppContext success first....");
         (*env).DeleteLocalRef(cActivityThread);
         (*env).DeleteLocalRef(cApplication);
     }
@@ -89,7 +89,7 @@ jobject getAssetsManager(JNIEnv *env) {
         assetsManager = (*env).CallObjectMethod(getAppContext(env), mGetAssets);
 
         assert(assetsManager != nullptr);
-        LOGD("getAssetsManager success first....");
+        LOG_D("getAssetsManager success first....");
         (*env).DeleteLocalRef(cContextWrapper);
     }
     return assetsManager;
@@ -137,7 +137,7 @@ jobject getClassLoader(JNIEnv *env) {
         jmethodID mGetClassLoader = (*env).GetMethodID(cContext, "getClassLoader",
                                                        "()Ljava/lang/ClassLoader;");
         oClassLoader = (*env).CallObjectMethod(oContext, mGetClassLoader);
-        LOGD("getClassLoader first...");
+        LOG_D("getClassLoader first...");
     }
     return oClassLoader;
 }
@@ -149,7 +149,7 @@ bool isArtVm(JNIEnv *env) {
         if (versionStr.empty()) {
             return false;
         }
-        LOGD("java.vm.version: %s", versionStr.data());
+        LOG_D("java.vm.version: %s", versionStr.data());
         version = stoi(versionStr, nullptr, BASE_10);
     }
     return version >= 2;

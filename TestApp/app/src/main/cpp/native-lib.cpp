@@ -8,8 +8,8 @@
 
 using namespace std;
 
-#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG,__FUNCTION__,__VA_ARGS__) // 定义LOGD类型
-#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR,__FUNCTION__,__VA_ARGS__) // 定义LOGE类型
+#define LOG_D(...) __android_log_print(ANDROID_LOG_DEBUG,__FUNCTION__,__VA_ARGS__) // 定义LOGD类型
+#define LOG_E(...) __android_log_print(ANDROID_LOG_ERROR,__FUNCTION__,__VA_ARGS__) // 定义LOGE类型
 
 void test(JNIEnv* env){
     jclass clazz = (*env).FindClass("java/lang/NullPointerException");
@@ -20,7 +20,7 @@ void test(JNIEnv* env){
 bool
 HookJava(JNIEnv *env, const char *clazzPath, const char *methodName, const char *methodSignature,
          const void *my_func, jmethodID *ori_func) {
-    LOGD("start HookJava...");
+    LOG_D("start HookJava...");
     // init AndHook Java
     static bool initAndHookJava = true;
     if (initAndHookJava) {
@@ -28,11 +28,11 @@ HookJava(JNIEnv *env, const char *clazzPath, const char *methodName, const char 
         JavaVM *vm = nullptr;
         (*env).GetJavaVM(&vm);
         AKInitializeOnce(env, vm);
-        LOGD("init java hook vm...");
+        LOG_D("init java hook vm...");
     }
     jclass clazz = (*env).FindClass(clazzPath);
     if (clazz == nullptr) {
-        LOGE("can't find the class by the path: %s", clazzPath);
+        LOG_E("can't find the class by the path: %s", clazzPath);
         return false;
     }
     AKJavaHookMethod(env, clazz, methodName, methodSignature, my_func, ori_func);
@@ -65,7 +65,7 @@ jobject clazzloader = nullptr;
 jmethodID sysFindClass = nullptr;
 jobject myFindClass(jstring name){
     const char* nameC = (*env).GetStringUTFChars(name, nullptr);
-    LOGD("name: ", nameC);
+    LOG_D("name: %s", nameC);
     return (env)->CallObjectMethod(clazzloader, sysFindClass, name);
 }
 
@@ -97,5 +97,5 @@ extern "C"
 JNIEXPORT void JNICALL
 Java_com_chend_testapp_MainActivity_test(JNIEnv *env, jobject thiz) {
     jclass clazz = (*env).FindClass("com/chend/testapp/MainActivity$1");
-    LOGE("ok");
+    LOG_E("ok");
 }

@@ -13,7 +13,7 @@
                         JNIEnv *env, jobject instance, jobject param0)
             {
                 
-                LOGD("jni function start: %s", __func__);
+                LOG_D("jni function start: %s", __func__);
                 jclass clazz_type = (*env).GetObjectClass(instance);
                 jmethodID m_onClick = (*env).GetMethodID(clazz_type, "onClick", "(Landroid/view/View;)V");
                 // init method
@@ -21,7 +21,7 @@
                 jvalue retValue;
                 dvmCallMethod(env, instance, method, &retValue, param0);
                 deleteVmMethod(method);
-                LOGD("jni function finish");
+                LOG_D("jni function finish");
             }
                 
                 extern "C"
@@ -30,7 +30,7 @@
                         JNIEnv *env, jobject instance, jobject param0)
             {
                 
-                LOGD("jni function start: %s", __func__);
+                LOG_D("jni function start: %s", __func__);
                 jclass clazz_type = (*env).GetObjectClass(instance);
                 jmethodID m_onCreate = (*env).GetMethodID(clazz_type, "onCreate", "(Landroid/os/Bundle;)V");
                 // init method
@@ -38,7 +38,7 @@
                 jvalue retValue;
                 dvmCallMethod(env, instance, method, &retValue, param0);
                 deleteVmMethod(method);
-                LOGD("jni function finish");
+                LOG_D("jni function finish");
             }
                 
                 extern "C"
@@ -47,7 +47,7 @@
                         JNIEnv *env, jobject instance, jobject param0)
             {
                 
-                LOGD("jni function start: %s", __func__);
+                LOG_D("jni function start: %s", __func__);
                 jclass clazz_type = (*env).GetObjectClass(instance);
                 jmethodID m_onCreate = (*env).GetMethodID(clazz_type, "onCreate", "(Landroid/os/Bundle;)V");
                 // init method
@@ -55,5 +55,5 @@
                 jvalue retValue;
                 dvmCallMethod(env, instance, method, &retValue, param0);
                 deleteVmMethod(method);
-                LOGD("jni function finish");
+                LOG_D("jni function finish");
             }

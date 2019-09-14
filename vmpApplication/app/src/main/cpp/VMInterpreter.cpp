@@ -52,7 +52,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             HANDLE_OPCODE(OP_MOVE /*vA, vB*/)
             vdst = static_cast<u2>(INST_A(inst));
             vsrc1 = INST_B(inst);
-            LOGD("|move%s v%d,v%d %s(v%d=0x%08x)",
+            LOG_D("|move%s v%d,v%d %s(v%d=0x%08x)",
                  (INST_INST(inst) == OP_MOVE) ? "" : "-object", vdst, vsrc1,
                  kSpacing, vdst, GET_REGISTER(vsrc1));
             SET_REGISTER(vdst, GET_REGISTER(vsrc1));
@@ -63,7 +63,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             HANDLE_OPCODE(OP_MOVE_FROM16 /*vAA, vBBBB*/)
             vdst = INST_AA(inst);
             vsrc1 = FETCH(1);
-            LOGD("|move%s/from16 v%d,v%d %s(v%d=0x%08x)",
+            LOG_D("|move%s/from16 v%d,v%d %s(v%d=0x%08x)",
                  (INST_INST(inst) == OP_MOVE_FROM16) ? "" : "-object", vdst, vsrc1,
                  kSpacing, vdst, GET_REGISTER(vsrc1));
             SET_REGISTER(vdst, GET_REGISTER(vsrc1));
@@ -74,7 +74,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             HANDLE_OPCODE(OP_MOVE_16 /*vAAAA, vBBBB*/)
             vdst = FETCH(1);
             vsrc1 = FETCH(2);
-            LOGD("|move%s/16 v%d,v%d %s(v%d=0x%08x)",
+            LOG_D("|move%s/16 v%d,v%d %s(v%d=0x%08x)",
                  (INST_INST(inst) == OP_MOVE_16) ? "" : "-object", vdst, vsrc1,
                  kSpacing, vdst, GET_REGISTER(vsrc1));
             SET_REGISTER(vdst, GET_REGISTER(vsrc1));
@@ -87,7 +87,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             * "move-wide v6, v7" and "move-wide v7, v6" */
             vdst = static_cast<u2>(INST_A(inst));
             vsrc1 = INST_B(inst);
-            LOGD("|move-wide v%d,v%d %s(v%d=0x%08llx)", vdst, vsrc1,
+            LOG_D("|move-wide v%d,v%d %s(v%d=0x%08llx)", vdst, vsrc1,
                  kSpacing + 5, vdst, GET_REGISTER_WIDE(vsrc1));
             SET_REGISTER_WIDE(vdst, GET_REGISTER_WIDE(vsrc1));
             FINISH(1);
@@ -97,7 +97,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             HANDLE_OPCODE(OP_MOVE_WIDE_FROM16 /*vAA, vBBBB*/)
             vdst = INST_AA(inst);
             vsrc1 = FETCH(1);
-            LOGD("|move-wide/from16 v%d,v%d  (v%d=0x%08llx)", vdst, vsrc1,
+            LOG_D("|move-wide/from16 v%d,v%d  (v%d=0x%08llx)", vdst, vsrc1,
                  vdst, GET_REGISTER_WIDE(vsrc1));
             SET_REGISTER_WIDE(vdst, GET_REGISTER_WIDE(vsrc1));
             FINISH(2);
@@ -107,7 +107,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             HANDLE_OPCODE(OP_MOVE_WIDE_16 /*vAAAA, vBBBB*/)
             vdst = FETCH(1);
             vsrc1 = FETCH(2);
-            LOGD("|move-wide/16 v%d,v%d %s(v%d=0x%08llx)", vdst, vsrc1,
+            LOG_D("|move-wide/16 v%d,v%d %s(v%d=0x%08llx)", vdst, vsrc1,
                  kSpacing + 8, vdst, GET_REGISTER_WIDE(vsrc1));
             SET_REGISTER_WIDE(vdst, GET_REGISTER_WIDE(vsrc1));
             FINISH(3);
@@ -117,7 +117,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             HANDLE_OPCODE(OP_MOVE_OBJECT /*vA, vB*/)
             vdst = static_cast<u2>(INST_A(inst));
             vsrc1 = INST_B(inst);
-            LOGD("|move%s v%d,v%d %s(v%d=0x%08x)",
+            LOG_D("|move%s v%d,v%d %s(v%d=0x%08x)",
                  (INST_INST(inst) == OP_MOVE) ? "" : "-object", vdst, vsrc1,
                  kSpacing, vdst, GET_REGISTER(vsrc1));
             SET_REGISTER(vdst, GET_REGISTER(vsrc1));
@@ -129,7 +129,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             HANDLE_OPCODE(OP_MOVE_OBJECT_FROM16 /*vAA, vBBBB*/)
             vdst = INST_AA(inst);
             vsrc1 = FETCH(1);
-            LOGD("|move%s/from16 v%d,v%d %s(v%d=0x%08x)",
+            LOG_D("|move%s/from16 v%d,v%d %s(v%d=0x%08x)",
                  (INST_INST(inst) == OP_MOVE_FROM16) ? "" : "-object", vdst, vsrc1,
                  kSpacing, vdst, GET_REGISTER(vsrc1));
             SET_REGISTER(vdst, GET_REGISTER(vsrc1));
@@ -141,7 +141,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             HANDLE_OPCODE(OP_MOVE_OBJECT_16 /*vAAAA, vBBBB*/)
             vdst = FETCH(1);
             vsrc1 = FETCH(2);
-            LOGD("|move%s/16 v%d,v%d %s(v%d=0x%08x)",
+            LOG_D("|move%s/16 v%d,v%d %s(v%d=0x%08x)",
                  (INST_INST(inst) == OP_MOVE_16) ? "" : "-object", vdst, vsrc1,
                  kSpacing, vdst, GET_REGISTER(vsrc1));
             SET_REGISTER(vdst, GET_REGISTER(vsrc1));
@@ -152,7 +152,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
         case OP_MOVE_RESULT:
             HANDLE_OPCODE(OP_MOVE_RESULT /*vAA*/)
             vdst = INST_AA(inst);
-            LOGD("|move-result%s v%d %s(v%d=0x%08x)",
+            LOG_D("|move-result%s v%d %s(v%d=0x%08x)",
                  (INST_INST(inst) == OP_MOVE_RESULT) ? "" : "-object",
                  vdst, kSpacing + 4, vdst, retval.i);
             SET_REGISTER(vdst, retval.i);
@@ -162,7 +162,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
         case OP_MOVE_RESULT_WIDE:
             HANDLE_OPCODE(OP_MOVE_RESULT_WIDE /*vAA*/)
             vdst = INST_AA(inst);
-            LOGD("|move-result-wide v%d %s(0x%08llx)", vdst, kSpacing, retval.j);
+            LOG_D("|move-result-wide v%d %s(0x%08llx)", vdst, kSpacing, retval.j);
             SET_REGISTER_WIDE(vdst, retval.j);
             FINISH(1);
             OP_END
@@ -170,7 +170,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
         case OP_MOVE_RESULT_OBJECT:
             HANDLE_OPCODE(OP_MOVE_RESULT_OBJECT /*vAA*/)
             vdst = INST_AA(inst);
-            LOGD("|move-result%s v%d %s(v%d=0x%08x)",
+            LOG_D("|move-result%s v%d %s(v%d=0x%08x)",
                  (INST_INST(inst) == OP_MOVE_RESULT) ? "" : "-object",
                  vdst, kSpacing + 4, vdst, retval.i);
             SET_REGISTER(vdst, retval.i);
@@ -180,7 +180,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
         case OP_MOVE_EXCEPTION:
             HANDLE_OPCODE(OP_MOVE_EXCEPTION /*vAA*/)
             vdst = INST_AA(inst);
-            LOGD("|move-exception v%d", vdst);
+            LOG_D("|move-exception v%d", vdst);
             assert(curException != NULL);
             SET_REGISTER(vdst, (u4) curException);
             curException = nullptr;
@@ -190,14 +190,14 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             // 0x0e-1c
         case OP_RETURN_VOID:
             HANDLE_OPCODE(OP_RETURN_VOID /**/)
-            LOGD("|return-void");
+            LOG_D("|return-void");
             OP_END
             break;
 
         case OP_RETURN:
             HANDLE_OPCODE(OP_RETURN /*vAA*/)
             vsrc1 = INST_AA(inst);
-            LOGD("|return%s v%d", (INST_INST(inst) == OP_RETURN) ? "" : "-object", vsrc1);
+            LOG_D("|return%s v%d", (INST_INST(inst) == OP_RETURN) ? "" : "-object", vsrc1);
             retval.i = GET_REGISTER(vsrc1);
             OP_END
             break;
@@ -205,7 +205,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
         case OP_RETURN_WIDE:
             HANDLE_OPCODE(OP_RETURN_WIDE /*vAA*/)
             vsrc1 = INST_AA(inst);
-            LOGD("|return-wide v%d", vsrc1);
+            LOG_D("|return-wide v%d", vsrc1);
             retval.j = GET_REGISTER_WIDE(vsrc1);
             OP_END
             break;
@@ -213,7 +213,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
         case OP_RETURN_OBJECT:
             HANDLE_OPCODE(OP_RETURN_OBJECT /*vAA*/)
             vsrc1 = INST_AA(inst);
-            LOGD("|return%s v%d",
+            LOG_D("|return%s v%d",
                  (INST_INST(inst) == OP_RETURN) ? "" : "-object", vsrc1);
             retval.i = GET_REGISTER(vsrc1);
             OP_END
@@ -225,7 +225,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
 
             vdst = static_cast<u2>(INST_A(inst));
             tmp = (s4) (INST_B(inst) << 28) >> 28;  // sign extend 4-bit value
-            LOGD("|const/4 v%d,#0x%02x", vdst, (s4) tmp);
+            LOG_D("|const/4 v%d,#0x%02x", vdst, (s4) tmp);
             SET_REGISTER(vdst, tmp);
         }
             FINISH(1);
@@ -235,7 +235,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             HANDLE_OPCODE(OP_CONST_16 /*vAA, #+BBBB*/)
             vdst = INST_AA(inst);
             vsrc1 = FETCH(1);
-            LOGD("|const/16 v%d,#0x%04x", vdst, (s2) vsrc1);
+            LOG_D("|const/16 v%d,#0x%04x", vdst, (s2) vsrc1);
             SET_REGISTER(vdst, (s2) vsrc1);
             FINISH(2);
             OP_END
@@ -247,7 +247,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             vdst = INST_AA(inst);
             tmp = FETCH(1);
             tmp |= (u4) FETCH(2) << 16;
-            LOGD("|const v%d,#0x%08x", vdst, tmp);
+            LOG_D("|const v%d,#0x%08x", vdst, tmp);
             SET_REGISTER(vdst, tmp);
         }
             FINISH(3);
@@ -257,7 +257,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             HANDLE_OPCODE(OP_CONST_HIGH16 /*vAA, #+BBBB0000*/)
             vdst = INST_AA(inst);
             vsrc1 = FETCH(1);
-            LOGD("|const/high16 v%d,#0x%04x0000", vdst, vsrc1);
+            LOG_D("|const/high16 v%d,#0x%04x0000", vdst, vsrc1);
             SET_REGISTER(vdst, vsrc1 << 16);
             FINISH(2);
             OP_END
@@ -266,7 +266,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             HANDLE_OPCODE(OP_CONST_WIDE_16 /*vAA, #+BBBB*/)
             vdst = INST_AA(inst);
             vsrc1 = FETCH(1);
-            LOGD("|const-wide/16 v%d,#0x%04x", vdst, (s2) vsrc1);
+            LOG_D("|const-wide/16 v%d,#0x%04x", vdst, (s2) vsrc1);
             SET_REGISTER_WIDE(vdst, (s2) vsrc1);
             FINISH(2);
             OP_END
@@ -278,7 +278,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             vdst = INST_AA(inst);
             tmp = FETCH(1);
             tmp |= (u4) FETCH(2) << 16;
-            LOGD("|const-wide/32 v%d,#0x%08x", vdst, tmp);
+            LOG_D("|const-wide/32 v%d,#0x%08x", vdst, tmp);
             SET_REGISTER_WIDE(vdst, (s4) tmp);
         }
             FINISH(3);
@@ -293,7 +293,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             tmp |= (u8) FETCH(2) << 16;
             tmp |= (u8) FETCH(3) << 32;
             tmp |= (u8) FETCH(4) << 48;
-            LOGD("|const-wide v%d,#0x%08llx", vdst, tmp);
+            LOG_D("|const-wide v%d,#0x%08llx", vdst, tmp);
             SET_REGISTER_WIDE(vdst, tmp);
         }
             FINISH(5);
@@ -303,7 +303,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             HANDLE_OPCODE(OP_CONST_WIDE_HIGH16 /*vAA, #+BBBB000000000000*/)
             vdst = INST_AA(inst);
             vsrc1 = FETCH(1);
-            LOGD("|const-wide/high16 v%d,#0x%04x000000000000", vdst, vsrc1);
+            LOG_D("|const-wide/high16 v%d,#0x%04x000000000000", vdst, vsrc1);
             SET_REGISTER_WIDE(vdst, ((u8) vsrc1) << 48);
             FINISH(2);
             OP_END
@@ -314,7 +314,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
 
             vdst = INST_AA(inst);
             ref = FETCH(1);
-            LOGD("|const-string v%d string@0x%04x", vdst, ref);
+            LOG_D("|const-string v%d string@0x%04x", vdst, ref);
             // get string from dex by stringId
             strObj = dvmResolveString(curMethod, ref);
             assert(strObj != nullptr);
@@ -331,7 +331,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             vdst = INST_AA(inst);
             tmp = FETCH(1);
             tmp |= (u4) FETCH(2) << 16;
-            LOGD("|const-string/jumbo v%d string@0x%08x", vdst, tmp);
+            LOG_D("|const-string/jumbo v%d string@0x%08x", vdst, tmp);
             // get string from dex by stringId
             strObj = dvmResolveString(curMethod, tmp);
             assert(strObj != nullptr);
@@ -346,7 +346,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
 
             vdst = INST_AA(inst);
             ref = FETCH(1);
-            LOGD("|const-class v%d class@0x%04x", vdst, ref);
+            LOG_D("|const-class v%d class@0x%04x", vdst, ref);
             // get clazz from dex by clazzId
             clazz = dvmResolveClass(curMethod, ref);
             if (clazz == nullptr) {
@@ -363,13 +363,13 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             jobject obj;
 
             vsrc1 = INST_AA(inst);
-            LOGD("|monitor-enter v%d %s(0x%08x)",
+            LOG_D("|monitor-enter v%d %s(0x%08x)",
                  vsrc1, kSpacing + 6, GET_REGISTER(vsrc1));
             obj = (jobject) GET_REGISTER(vsrc1);
             if (!checkForNull(obj)) {
                 GOTO_exceptionThrown();
             }
-//            LOGD("+ locking %p %s", obj, getClassObjectByJObject(obj)->descriptor);
+//            LOG_D("+ locking %p %s", obj, getClassObjectByJObject(obj)->descriptor);
             (*env).MonitorEnter(obj);
         }
             FINISH(1);
@@ -380,7 +380,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             jobject obj;
 
             vsrc1 = INST_AA(inst);
-            LOGD("|monitor-exit v%d %s(0x%08x)",
+            LOG_D("|monitor-exit v%d %s(0x%08x)",
                  vsrc1, kSpacing + 5, GET_REGISTER(vsrc1));
             obj = (jobject) GET_REGISTER(vsrc1);
             if (!checkForNull(obj)) {
@@ -394,7 +394,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
                 ADJUST_PC(1);           /* monitor-exit width is 1 */
                 GOTO_exceptionThrown();
             }
-//            LOGD("+ unlocking %p %s", obj, getClassObjectByJObject(obj)->descriptor);
+//            LOG_D("+ unlocking %p %s", obj, getClassObjectByJObject(obj)->descriptor);
             if (!(*env).MonitorExit(obj)) {
                 ADJUST_PC(1);
                 GOTO_exceptionThrown();
@@ -411,7 +411,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
 
             vsrc1 = INST_AA(inst);
             ref = FETCH(1);         /* class to check against */
-            LOGD("|check-cast v%d,class@0x%04x", vsrc1, ref);
+            LOG_D("|check-cast v%d,class@0x%04x", vsrc1, ref);
 
             obj = (jobject) GET_REGISTER(vsrc1);
             if (obj != nullptr) {
@@ -438,7 +438,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             vdst = static_cast<u2>(INST_A(inst));
             vsrc1 = INST_B(inst);   /* object to check */
             ref = FETCH(1);         /* class to check against */
-            LOGD("|instance-of v%d,v%d,class@0x%04x", vdst, vsrc1, ref);
+            LOG_D("|instance-of v%d,v%d,class@0x%04x", vdst, vsrc1, ref);
 
             obj = (jobject) GET_REGISTER(vsrc1);
             if (obj == nullptr) {
@@ -464,7 +464,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             vdst = static_cast<u2>(INST_A(inst));
             vsrc1 = INST_B(inst);
             arrayObj = (jobjectArray) GET_REGISTER(vsrc1);
-            LOGD("|array-length v%d,v%d  (%p)", vdst, vsrc1, arrayObj);
+            LOG_D("|array-length v%d,v%d  (%p)", vdst, vsrc1, arrayObj);
             if (!checkForNull(arrayObj)) {
                 GOTO_exceptionThrown();
             }
@@ -482,7 +482,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
 
             vdst = INST_AA(inst);
             ref = FETCH(1);
-            LOGD("|new-instance v%d,class@0x%04x", vdst, ref);
+            LOG_D("|new-instance v%d,class@0x%04x", vdst, ref);
             //  get clazz from dex by clazzId
             clazz = dvmResolveClass(curMethod, ref);
             if (clazz == nullptr) {
@@ -505,7 +505,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             vdst = static_cast<u2>(INST_A(inst));
             vsrc1 = INST_B(inst);       /* length reg */
             ref = FETCH(1);
-            LOGD("|new-array v%d,v%d,class@0x%04x  (%d elements)",
+            LOG_D("|new-array v%d,v%d,class@0x%04x  (%d elements)",
                  vdst, vsrc1, ref, (s4) GET_REGISTER(vsrc1));
             length = (s4) GET_REGISTER(vsrc1);
             if (length < 0) {
@@ -540,7 +540,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
 
             vsrc1 = INST_AA(inst);
             offset = FETCH(1) | (((s4) FETCH(2)) << 16);
-            LOGD("|fill-array-data v%d +0x%04x", vsrc1, offset);
+            LOG_D("|fill-array-data v%d +0x%04x", vsrc1, offset);
             arrayData = pc + offset;       // offset in 16-bit units
 
             arrayObj = (jarray) GET_REGISTER(vsrc1);
@@ -557,11 +557,11 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             jthrowable obj;
 
             vsrc1 = INST_AA(inst);
-            LOGD("|throw v%d  (%p)", vsrc1, (void *) GET_REGISTER(vsrc1));
+            LOG_D("|throw v%d  (%p)", vsrc1, (void *) GET_REGISTER(vsrc1));
             obj = (jthrowable) GET_REGISTER(vsrc1);
             if (!checkForNull(obj)) {
                 /* will throw a null pointer exception */
-                LOGE("Bad exception");
+                LOG_E("Bad exception");
                 GOTO_exceptionThrown();
             } else {
                 /* use the requested exception */
@@ -576,10 +576,10 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             HANDLE_OPCODE(OP_GOTO /*+AA*/)
             vdst = INST_AA(inst);
             if ((s1) vdst < 0) {
-                LOGD("|goto -0x%02x", -((s1) vdst));
+                LOG_D("|goto -0x%02x", -((s1) vdst));
             } else {
-                LOGD("|goto +0x%02x", ((s1) vdst));
-                LOGD("> branch taken");
+                LOG_D("|goto +0x%02x", ((s1) vdst));
+                LOG_D("> branch taken");
             }
 
             if ((s1) vdst < 0) {PERIODIC_CHECKS((s1) vdst); }
@@ -591,10 +591,10 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             s4 offset = (s2) FETCH(1);          /* sign-extend next code unit */
 
             if (offset < 0)
-                LOGD("|goto/16 -0x%04x", -offset);
+                LOG_D("|goto/16 -0x%04x", -offset);
             else
-                LOGD("|goto/16 +0x%04x", offset);
-            LOGD("> branch taken");
+                LOG_D("|goto/16 +0x%04x", offset);
+            LOG_D("> branch taken");
 
             if (offset < 0) PERIODIC_CHECKS(offset);
             FINISH(offset);
@@ -607,10 +607,10 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             offset |= ((s4) FETCH(2)) << 16;    /* high-order 16 bits */
 
             if (offset < 0)
-                LOGD("|goto/32 -0x%08x", -offset);
+                LOG_D("|goto/32 -0x%08x", -offset);
             else
-                LOGD("|goto/32 +0x%08x", offset);
-            LOGD("> branch taken");
+                LOG_D("|goto/32 +0x%08x", offset);
+            LOG_D("> branch taken");
 
             /* allowed to branch to self */
             if (offset <= 0) PERIODIC_CHECKS(offset);
@@ -626,13 +626,13 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
 
             vsrc1 = INST_AA(inst);
             offset = FETCH(1) | (((s4) FETCH(2)) << 16);
-            LOGD("|packed-switch v%d +0x%04x", vsrc1, offset);
+            LOG_D("|packed-switch v%d +0x%04x", vsrc1, offset);
             switchData = pc + offset;       // offset in 16-bit units
 
             testVal = GET_REGISTER(vsrc1);
 
             offset = dvmInterpretHandlePackedSwitch(switchData, testVal);
-            LOGD("> branch taken (0x%04x)", offset);
+            LOG_D("> branch taken (0x%04x)", offset);
 
             /* uncommon */
             if (offset <= 0) PERIODIC_CHECKS(offset);
@@ -648,13 +648,13 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
 
             vsrc1 = INST_AA(inst);
             offset = FETCH(1) | (((s4) FETCH(2)) << 16);
-            LOGD("|sparse-switch v%d +0x%04x", vsrc1, offset);
+            LOG_D("|sparse-switch v%d +0x%04x", vsrc1, offset);
             switchData = pc + offset;       // offset in 16-bit units
 
             testVal = GET_REGISTER(vsrc1);
 
             offset = dvmInterpretHandleSparseSwitch(switchData, testVal);
-            LOGD("> branch taken (0x%04x)", offset);
+            LOG_D("> branch taken (0x%04x)", offset);
 
             /* uncommon */
             if (offset <= 0) PERIODIC_CHECKS(offset);
@@ -740,7 +740,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             arrayInfo = FETCH(1);
             vsrc1 = static_cast<u2>(arrayInfo & 0xff);    /* array ptr */
             vsrc2 = arrayInfo >> 8;      /* index */
-            LOGD("|aget%s v%d,v%d,v%d", "-object", vdst, vsrc1, vsrc2);
+            LOG_D("|aget%s v%d,v%d,v%d", "-object", vdst, vsrc1, vsrc2);
             arrayObj = (jobjectArray) GET_REGISTER(vsrc1);
             if (!checkForNull(arrayObj)) {
                 GOTO_exceptionThrown();
@@ -751,7 +751,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
                 GOTO_exceptionThrown();
             }
             SET_REGISTER(vdst, (u4) (*env).GetObjectArrayElement(arrayObj, GET_REGISTER(vsrc2)));
-            LOGD("+ AGET[%d]=%#x", GET_REGISTER(vsrc2), GET_REGISTER(vdst));
+            LOG_D("+ AGET[%d]=%#x", GET_REGISTER(vsrc2), GET_REGISTER(vdst));
         }
             FINISH(2);
             OP_END
@@ -783,7 +783,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             arrayInfo = FETCH(1);
             vsrc1 = static_cast<u2>(arrayInfo & 0xff);   /* BB: array ptr */
             vsrc2 = arrayInfo >> 8;     /* CC: index */
-            LOGD("|aput%s v%d,v%d,v%d", "-object", vdst, vsrc1, vsrc2);
+            LOG_D("|aput%s v%d,v%d,v%d", "-object", vdst, vsrc1, vsrc2);
             arrayObj = (jobjectArray) GET_REGISTER(vsrc1);
             if (!checkForNull((jobject) arrayObj)) {
                 GOTO_exceptionThrown();
@@ -799,14 +799,14 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
                 GOTO_exceptionThrown();
             }
             if (!dvmCanPutArrayElement(obj, arrayObj)) {
-//                LOGE("Can't put a '%s'(%p) into array type='%s'(%p)",
+//                LOG_E("Can't put a '%s'(%p) into array type='%s'(%p)",
 //                     getClassObjectByJObject(obj)->descriptor, obj,
 //                     getClassObjectByJObject(arrayObj)->descriptor, arrayObj);
                 dvmThrowArrayStoreExceptionIncompatibleElement(obj, arrayObj);
                 GOTO_exceptionThrown();
             }
 
-            LOGD("+ APUT[%d]=0x%08x", GET_REGISTER(vsrc2), GET_REGISTER(vdst));
+            LOG_D("+ APUT[%d]=0x%08x", GET_REGISTER(vsrc2), GET_REGISTER(vdst));
             (*env).SetObjectArrayElement(arrayObj, GET_REGISTER(vsrc2), obj);
         }
             FINISH(2);
@@ -1150,7 +1150,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             srcRegs = FETCH(1);
             vsrc1 = static_cast<u2>(srcRegs & 0xff);
             vsrc2 = srcRegs >> 8;
-            LOGD("|%s-float v%d,v%d,v%d", "mod", vdst, vsrc1, vsrc2);
+            LOG_D("|%s-float v%d,v%d,v%d", "mod", vdst, vsrc1, vsrc2);
             SET_REGISTER_FLOAT(vdst, fmodf(GET_REGISTER_FLOAT(vsrc1), GET_REGISTER_FLOAT(vsrc2)));
         }
             FINISH(2);
@@ -1176,7 +1176,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             srcRegs = FETCH(1);
             vsrc1 = static_cast<u2>(srcRegs & 0xff);
             vsrc2 = srcRegs >> 8;
-            LOGD("|%s-double v%d,v%d,v%d", "mod", vdst, vsrc1, vsrc2);
+            LOG_D("|%s-double v%d,v%d,v%d", "mod", vdst, vsrc1, vsrc2);
             SET_REGISTER_DOUBLE(vdst, fmod(GET_REGISTER_DOUBLE(vsrc1), GET_REGISTER_DOUBLE(vsrc2)));
         }
             FINISH(2);
@@ -1293,7 +1293,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             HANDLE_OPCODE(OP_REM_FLOAT_2ADDR /*vA, vB*/)
             vdst = static_cast<u2>(INST_A(inst));
             vsrc1 = INST_B(inst);
-            LOGD("|%s-float-2addr v%d,v%d", "mod", vdst, vsrc1);
+            LOG_D("|%s-float-2addr v%d,v%d", "mod", vdst, vsrc1);
             SET_REGISTER_FLOAT(vdst, fmodf(GET_REGISTER_FLOAT(vdst), GET_REGISTER_FLOAT(vsrc1)));
             FINISH(1);
             OP_END
@@ -1319,7 +1319,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             HANDLE_OPCODE(OP_REM_DOUBLE_2ADDR /*vA, vB*/)
             vdst = static_cast<u2>(INST_A(inst));
             vsrc1 = INST_B(inst);
-            LOGD("|%s-double-2addr v%d,v%d", "mod", vdst, vsrc1);
+            LOG_D("|%s-double-2addr v%d,v%d", "mod", vdst, vsrc1);
             SET_REGISTER_DOUBLE(vdst, fmod(GET_REGISTER_DOUBLE(vdst), GET_REGISTER_DOUBLE(vsrc1)));
             FINISH(1);
             OP_END
@@ -1334,7 +1334,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             vdst = static_cast<u2>(INST_A(inst));
             vsrc1 = INST_B(inst);
             vsrc2 = FETCH(1);
-            LOGD("|rsub-int v%d,v%d,#+0x%04x", vdst, vsrc1, vsrc2);
+            LOG_D("|rsub-int v%d,v%d,#+0x%04x", vdst, vsrc1, vsrc2);
             SET_REGISTER(vdst, (s2) vsrc2 - (s4) GET_REGISTER(vsrc1));
         }
             FINISH(2);
@@ -1375,7 +1375,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             litInfo = FETCH(1);
             vsrc1 = static_cast<u2>(litInfo & 0xff);
             vsrc2 = litInfo >> 8;
-            LOGD("|%s-int/lit8 v%d,v%d,#+0x%02x", "rsub", vdst, vsrc1, vsrc2);
+            LOG_D("|%s-int/lit8 v%d,v%d,#+0x%02x", "rsub", vdst, vsrc1, vsrc2);
             SET_REGISTER(vdst, (s1) vsrc2 - (s4) GET_REGISTER(vsrc1));
         }
             FINISH(2);
@@ -1504,7 +1504,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
                                                     _AS_OBJECT)
             OP_END
         default:
-            LOGE("unknown opcode 0x%02x\n", curOp);
+            LOG_E("unknown opcode 0x%02x\n", curOp);
             dvmThrowRuntimeException("unknown opcode");
             return;
     }
@@ -1539,12 +1539,12 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
         if (methodCallRange) {
             vsrc1 = INST_AA(inst);  /* #of elements */
             arg5 = -1;              /* silence compiler warning */
-            LOGD("|filled-new-array-range args=%d @0x%04x {regs=v%d-v%d}",
+            LOG_D("|filled-new-array-range args=%d @0x%04x {regs=v%d-v%d}",
                  vsrc1, ref, vdst, vdst + vsrc1 - 1);
         } else {
             arg5 = static_cast<u4>(INST_A(inst));
             vsrc1 = INST_B(inst);   /* #of elements */
-            LOGD("|filled-new-array args=%d @0x%04x {regs=0x%04x %x}",
+            LOG_D("|filled-new-array args=%d @0x%04x {regs=0x%04x %x}",
                  vsrc1, ref, vdst, arg5);
         }
 
@@ -1564,14 +1564,14 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
         /*
          * Create an array of the specified type.
          */
-        LOGD("+++ filled-new-array type is '%s'", descriptor.data());
+        LOG_D("+++ filled-new-array type is '%s'", descriptor.data());
         typeCh = descriptor[1];
         if (typeCh == 'D' || typeCh == 'J') {
             /* category 2 primitives not allowed */
             dvmThrowRuntimeException("bad filled array req");
             GOTO_bail();
         } else if (typeCh != 'L' && typeCh != '[' && typeCh != 'I') {
-            LOGE("non-int primitives not implemented");
+            LOG_E("non-int primitives not implemented");
             dvmThrowInternalError(
                     "filled-new-array not implemented for anything but 'int'");
             GOTO_bail();
@@ -1635,11 +1635,11 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
         vdst = FETCH(2);            /* 4 regs -or- first reg */
 
         if (methodCallRange) {
-            LOGD("|invoke-super-range args=%d @0x%04x {regs=v%d-v%d}",
+            LOG_D("|invoke-super-range args=%d @0x%04x {regs=v%d-v%d}",
                  vsrc1, ref, vdst, vdst + vsrc1 - 1);
             thisReg = vdst;
         } else {
-            LOGD("|invoke-super args=%d @0x%04x {regs=0x%04x %x}",
+            LOG_D("|invoke-super args=%d @0x%04x {regs=0x%04x %x}",
                  vsrc1 >> 4, ref, vdst, vsrc1 & 0x0f);
             thisReg = static_cast<u2>(vdst & 0x0f);
         }
@@ -1659,7 +1659,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
 //               (reinterpret_cast<Method *>(methodToCall))->nativeFunc != nullptr);
 
 //        methodToCallClazz = (*env).GetSuperclass(methodToCallClazz);
-//        LOGD("+++ super-virtual[%d]=%s.%s",
+//        LOG_D("+++ super-virtual[%d]=%s.%s",
 //             (reinterpret_cast<Method *>(methodToCall))->methodIndex,
 //             (reinterpret_cast<Method *>(methodToCall))->clazz->descriptor,
 //             (reinterpret_cast<Method *>(methodToCall))->name);
@@ -1678,11 +1678,11 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
 //        vdst = FETCH(2);            /* 4 regs -or- first reg */
 //
 //        if (methodCallRange) {
-//            LOGD("|invoke-super-quick-range args=%d @0x%04x {regs=v%d-v%d}",
+//            LOG_D("|invoke-super-quick-range args=%d @0x%04x {regs=v%d-v%d}",
 //                 vsrc1, ref, vdst, vdst + vsrc1 - 1);
 //            thisReg = vdst;
 //        } else {
-//            LOGD("|invoke-super-quick args=%d @0x%04x {regs=0x%04x %x}",
+//            LOG_D("|invoke-super-quick args=%d @0x%04x {regs=0x%04x %x}",
 //                 vsrc1 >> 4, ref, vdst, vsrc1 & 0x0f);
 //            thisReg = static_cast<u2>(vdst & 0x0f);
 //        }
@@ -1704,7 +1704,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
 //         */
 //        Method *pMethod = curMethod->clazz->super->vtable[ref];
 //        if (pMethod == nullptr) {
-//            LOGE("+ unknown method or access denied");
+//            LOG_E("+ unknown method or access denied");
 //            GOTO_bail();
 //        }
 //        methodToCall = reinterpret_cast<jmethodID>(pMethod);
@@ -1723,7 +1723,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
 //        tmp = tmp.substr(1, tmp.size() - 1);
 //        methodToCallClazz = (*env).FindClass(tmp.data());
 //
-//        LOGD("+++ super-virtual[%d]=%s.%s", ref, pMethod->clazz->descriptor, pMethod->name);
+//        LOG_D("+++ super-virtual[%d]=%s.%s", ref, pMethod->clazz->descriptor, pMethod->name);
 //        GOTO_invokeMethod(methodCallRange, methodToCall, vsrc1, vdst);
 //    }
 //    GOTO_TARGET_END
@@ -1741,12 +1741,12 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
          */
         if (methodCallRange) {
             assert(vsrc1 > 0);
-            LOGD("|invoke-virtual-range args=%d @0x%04x {regs=v%d-v%d}",
+            LOG_D("|invoke-virtual-range args=%d @0x%04x {regs=v%d-v%d}",
                  vsrc1, ref, vdst, vdst + vsrc1 - 1);
 
         } else {
             assert((vsrc1 >> 4) > 0);
-            LOGD("|invoke-virtual args=%d @0x%04x {regs=0x%04x %x}",
+            LOG_D("|invoke-virtual args=%d @0x%04x {regs=0x%04x %x}",
                  vsrc1 >> 4, ref, vdst, vsrc1 & 0x0f);
         }
 
@@ -1758,14 +1758,14 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
         methodToCall = dvmResolveMethod(curMethod, ref, methodToCallType,
                                         &methodToCallClazz);
         if (methodToCall == nullptr) {
-            LOGE("+ unknown method or access denied");
+            LOG_E("+ unknown method or access denied");
             GOTO_bail();
         }
 
 //        assert(!dvmIsAbstractMethod(reinterpret_cast<Method *>(methodToCall)) ||
 //               (reinterpret_cast<Method *>(methodToCall))->nativeFunc != nullptr);
         assert(methodToCall != nullptr);
-//        LOGD("+++ virtual[%d]=%s.%s",
+//        LOG_D("+++ virtual[%d]=%s.%s",
 //             (reinterpret_cast<Method *>(methodToCall))->methodIndex,
 //             (reinterpret_cast<Method *>(methodToCall))->clazz->descriptor,
 //             (reinterpret_cast<Method *>(methodToCall))->name);
@@ -1788,12 +1788,12 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
 //         */
 //        if (methodCallRange) {
 //            assert(vsrc1 > 0);
-//            LOGD("|invoke-virtual-quick-range args=%d @0x%04x {regs=v%d-v%d}",
+//            LOG_D("|invoke-virtual-quick-range args=%d @0x%04x {regs=v%d-v%d}",
 //                 vsrc1, ref, vdst, vdst + vsrc1 - 1);
 //            thisPtr = (jobject) GET_REGISTER(vdst);
 //        } else {
 //            assert((vsrc1 >> 4) > 0);
-//            LOGD("|invoke-virtual-quick args=%d @0x%04x {regs=0x%04x %x}",
+//            LOG_D("|invoke-virtual-quick args=%d @0x%04x {regs=0x%04x %x}",
 //                 vsrc1 >> 4, ref, vdst, vsrc1 & 0x0f);
 //            thisPtr = (jobject) GET_REGISTER(vdst & 0x0f);
 //        }
@@ -1806,7 +1806,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
 //        assert(ref < (unsigned int) pClassObject->vtableCount);
 //        Method *pMethod = pClassObject->vtable[ref];
 //        if (pMethod == nullptr) {
-//            LOGE("+ unknown method or access denied");
+//            LOG_E("+ unknown method or access denied");
 //            GOTO_bail();
 //        }
 //        methodToCall = reinterpret_cast<jmethodID>(pMethod);
@@ -1820,7 +1820,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
 //        methodToCallReturn = dexGetStringData(pDexFile, pDexStringId);
 //
 //        assert(!dvmIsAbstractMethod(pMethod) || pMethod->nativeFunc != nullptr);
-//        LOGD("+++ virtual quick[%d]=%s.%s", pMethod->methodIndex, pMethod->clazz->descriptor,
+//        LOG_D("+++ virtual quick[%d]=%s.%s", pMethod->methodIndex, pMethod->clazz->descriptor,
 //             pMethod->name);
 //
 //        methodToCallType = METHOD_VIRTUAL;
@@ -1837,10 +1837,10 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
         vdst = FETCH(2);            /* 4 regs -or- first reg */
 
         if (methodCallRange) {
-            LOGD("|invoke-direct-range args=%d @0x%04x {regs=v%d-v%d}",
+            LOG_D("|invoke-direct-range args=%d @0x%04x {regs=v%d-v%d}",
                  vsrc1, ref, vdst, vdst + vsrc1 - 1);
         } else {
-            LOGD("|invoke-direct args=%d @0x%04x {regs=0x%04x %x}",
+            LOG_D("|invoke-direct args=%d @0x%04x {regs=0x%04x %x}",
                  vsrc1 >> 4, ref, vdst, vsrc1 & 0x0f);
         }
 
@@ -1848,7 +1848,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
         methodToCall = dvmResolveMethod(curMethod, ref, methodToCallType, &methodToCallClazz);
 
         if (methodToCall == nullptr) {
-            LOGE("+ unknown direct method");     // should be impossible
+            LOG_E("+ unknown direct method");     // should be impossible
             GOTO_bail();
         }
 
@@ -1865,17 +1865,17 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
         vdst = FETCH(2);            /* 4 regs -or- first reg */
 
         if (methodCallRange) {
-            LOGD("|invoke-static-range args=%d @0x%04x {regs=v%d-v%d}",
+            LOG_D("|invoke-static-range args=%d @0x%04x {regs=v%d-v%d}",
                  vsrc1, ref, vdst, vdst + vsrc1 - 1);
         } else {
-            LOGD("|invoke-static args=%d @0x%04x {regs=0x%04x %x}",
+            LOG_D("|invoke-static args=%d @0x%04x {regs=0x%04x %x}",
                  vsrc1 >> 4, ref, vdst, vsrc1 & 0x0f);
         }
 
         methodToCallType = METHOD_STATIC;
         methodToCall = dvmResolveMethod(curMethod, ref, methodToCallType, &methodToCallClazz);
         if (methodToCall == nullptr) {
-            LOGE("+ unknown method");
+            LOG_E("+ unknown method");
             GOTO_bail();
         }
         GOTO_invokeMethod(methodCallRange, methodToCall, vsrc1, vdst);
@@ -1897,12 +1897,12 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
          */
         if (methodCallRange) {
             assert(vsrc1 > 0);
-            LOGD("|invoke-interface-range args=%d @0x%04x {regs=v%d-v%d}",
+            LOG_D("|invoke-interface-range args=%d @0x%04x {regs=v%d-v%d}",
                  vsrc1, ref, vdst, vdst + vsrc1 - 1);
             thisPtr = (jobject) GET_REGISTER(vdst);
         } else {
             assert((vsrc1 >> 4) > 0);
-            LOGD("|invoke-interface args=%d @0x%04x {regs=0x%04x %x}",
+            LOG_D("|invoke-interface args=%d @0x%04x {regs=0x%04x %x}",
                  vsrc1 >> 4, ref, vdst, vsrc1 & 0x0f);
             thisPtr = (jobject) GET_REGISTER(vdst & 0x0f);
         }
@@ -1925,7 +1925,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
         }
 //        assert(!dvmIsAbstractMethod(reinterpret_cast<Method *>(methodToCall)) ||
 //               (reinterpret_cast<Method *>(methodToCall))->nativeFunc != nullptr);
-//        LOGD("+++ interface concrete=%s.%s",
+//        LOG_D("+++ interface concrete=%s.%s",
 //             (reinterpret_cast<Method *>(methodToCall))->clazz->descriptor,
 //             (reinterpret_cast<Method *>(methodToCall))->name);
 
@@ -2093,7 +2093,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
                     break;
 
                 default:
-                    LOGE("error method's return type...");
+                    LOG_E("error method's return type...");
                     dvmThrowRuntimeException("error type of field... cc");
                     break;
             }
@@ -2155,7 +2155,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
                     break;
 
                 default:
-                    LOGE("error method's return type...");
+                    LOG_E("error method's return type...");
                     dvmThrowRuntimeException("error type of field... cc");
                     break;
             }
@@ -2207,7 +2207,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
                     break;
 
                 default:
-                    LOGE("error method's return type...");
+                    LOG_E("error method's return type...");
                     dvmThrowRuntimeException("error type of field... cc");
                     break;
             }
@@ -2237,7 +2237,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
         curException = (*env).ExceptionOccurred();
         assert(curException != nullptr);
         (*env).ExceptionClear();
-//        LOGD("Handling exception %s at %s",
+//        LOG_D("Handling exception %s at %s",
 //             getClassObjectByJObject(curException)->descriptor, curMethod->name);
 
         /*
@@ -2260,7 +2260,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             (*env).Throw(curException);
             GOTO_bail();
         }
-        LOGD("dvmFindCatchBlock: %d", catchRelPC);
+        LOG_D("dvmFindCatchBlock: %d", catchRelPC);
         pc = curInsns + catchRelPC;
         FINISH(0);
     }
@@ -2318,8 +2318,8 @@ dvmCallMethod(JNIEnv *env, jobject instance, const VmMethod *method, jvalue *pRe
     va_end(args);
 
     if (verifyCount != method->code->insSize) {
-        LOGE("desc: %s", dexStringById(method->dexFile, method->protoId->shortyIdx));
-        LOGE("Got vfycount=%d insSize=%d for %s", verifyCount, method->code->insSize, method->name);
+        LOG_E("desc: %s", dexStringById(method->dexFile, method->protoId->shortyIdx));
+        LOG_E("Got vfycount=%d insSize=%d for %s", verifyCount, method->code->insSize, method->name);
         GOTO_bail();
     }
 
@@ -2359,7 +2359,7 @@ jstring dvmResolveString(const VmMethod *method, u4 stringIdx) {
     const DexStringId *pStringId = dexGetStringId(pDexFile, stringIdx);
     const char *stringData = dexGetStringData(pDexFile, pStringId);
 
-//    LOGD("+++ resolving string=%s, referrer is %s", stringData, method->clazzDescriptor);
+//    LOG_D("+++ resolving string=%s, referrer is %s", stringData, method->clazzDescriptor);
     return (*env).NewStringUTF(stringData);
 }
 
@@ -2406,7 +2406,7 @@ jclass dvmResolveClass(const VmMethod *method, u4 classIdx, string *clazzNameStr
     if (clazzNameString != nullptr) {
         *clazzNameString = tmp;
     }
-//    LOGD("--- resolving class %s (idx=%u referrer=%s)", tmp.data(), classIdx,
+//    LOG_D("--- resolving class %s (idx=%u referrer=%s)", tmp.data(), classIdx,
 //         method->clazzDescriptor);
     return (*env).FindClass(tmp.data());
 }
@@ -2425,7 +2425,7 @@ jmethodID dvmResolveMethod(const VmMethod *method, u4 methodIdx, MethodType meth
     }
     *methodToCallClazz = resClass;
     const char *name = dexStringById(pDexFile, pMethodId->nameIdx);
-//    LOGD("--- resolving method=%s (idx=%u referrer=%s)", name, methodIdx, method->clazzDescriptor);
+//    LOG_D("--- resolving method=%s (idx=%u referrer=%s)", name, methodIdx, method->clazzDescriptor);
     string sign;
     dvmResolveMethodSign(method, pMethodId, &sign);
     if (methodType == METHOD_STATIC) {
@@ -2460,7 +2460,7 @@ void dvmResolveMethodSign(const VmMethod *method, const DexMethodId *pMethodId,
     pTypeId = dexGetTypeId(pDexFile, pMethodId->classIdx);
     pDexStringId = dexGetStringId(pDexFile, pTypeId->descriptorIdx);
     const char *clazzName = dexGetStringData(pDexFile, pDexStringId);
-//    LOGD("--- resolving method sign %s (clazz=%s)", methodSign->data(), clazzName);
+//    LOG_D("--- resolving method sign %s (clazz=%s)", methodSign->data(), clazzName);
 }
 
 bool checkForNull(jobject obj) {
@@ -2477,7 +2477,7 @@ jarray dvmAllocArrayByClass(const s4 length, const VmMethod *method, u4 classIdx
     const DexTypeId *pTypeId = dexGetTypeId(pDexFile, classIdx);
     const DexStringId *pStringId = dexGetStringId(pDexFile, pTypeId->descriptorIdx);
     string tmp = dexGetStringData(pDexFile, pStringId);
-//    LOGD("--- resolving class %s (idx=%u referrer=%s)", tmp.data(), classIdx,
+//    LOG_D("--- resolving class %s (idx=%u referrer=%s)", tmp.data(), classIdx,
 //         method->clazzDescriptor);
 
     /* must be array class */
@@ -2523,7 +2523,7 @@ jarray dvmAllocArrayByClass(const s4 length, const VmMethod *method, u4 classIdx
             return (*env).NewObjectArray(length, elementClazz, nullptr);
 
         default:
-            LOGE("Unknown primitive type '%s'", tmp.data() + 1);
+            LOG_E("Unknown primitive type '%s'", tmp.data() + 1);
             dvmThrowRuntimeException("error type of field... cc");
             return nullptr;
     }
@@ -2604,7 +2604,7 @@ bool dvmInterpretHandleFillArrayData(jarray arrayObj, const u2 *arrayData) {
             break;
 
         default:
-            LOGE("Unknown primitive type '%c'", descriptor[1]);
+            LOG_E("Unknown primitive type '%c'", descriptor[1]);
             dvmThrowRuntimeException("error type of field... cc");
             return false;
     }
@@ -2652,7 +2652,7 @@ s4 dvmInterpretHandlePackedSwitch(const u2 *switchData, s4 testVal) {
 
     int index = testVal - firstKey;
     if (index < 0 || index >= size) {
-        LOGE("Value %d not found in switch (%d-%d)",
+        LOG_E("Value %d not found in switch (%d-%d)",
              testVal, firstKey, firstKey + size - 1);
         return kInstrLen;
     }
@@ -2664,7 +2664,7 @@ s4 dvmInterpretHandlePackedSwitch(const u2 *switchData, s4 testVal) {
     assert(((u4) entries & 0x3) == 0);
 
     assert(index >= 0 && index < size);
-//    LOGD("Value %d found in slot %d (goto 0x%02x)",
+//    LOG_D("Value %d found in slot %d (goto 0x%02x)",
 //         testVal, index,
 //         s4FromSwitchData(&entries[index]));
     return s4FromSwitchData(&entries[index]);
@@ -2722,13 +2722,13 @@ s4 dvmInterpretHandleSparseSwitch(const u2 *switchData, s4 testVal) {
         } else if (testVal > foundVal) {
             lo = mid + 1;
         } else {
-//            LOGD("Value %d found in entry %d (goto 0x%02x)",
+//            LOG_D("Value %d found in entry %d (goto 0x%02x)",
 //                 testVal, mid, s4FromSwitchData(&entries[mid]));
             return s4FromSwitchData(&entries[mid]);
         }
     }
 
-    LOGE("Value %d not found in switch", testVal);
+    LOG_E("Value %d not found in switch", testVal);
     return kInstrLen;
 }
 
@@ -2754,11 +2754,11 @@ void dvmThrowArrayStoreExceptionIncompatibleElement(const jobject obj, const job
 bool dvmResolveField(const VmMethod *method, u4 ifieldIdx, jobject obj, s8 *res,
                      const char **ppName) {
     const DexFile *pDexFile = method->dexFile;
-//    LOGD("--- resolving field %u (referrer=%s)", ifieldIdx, method->clazzDescriptor);
+//    LOG_D("--- resolving field %u (referrer=%s)", ifieldIdx, method->clazzDescriptor);
     const DexFieldId *pFieldId = dexGetFieldId(pDexFile, ifieldIdx);
     jclass resClass = dvmResolveClass(method, pFieldId->classIdx);
     if (resClass == nullptr) {
-        LOGE("can't found jclass");
+        LOG_E("can't found jclass");
         return false;
     }
     jfieldID resField = nullptr;
@@ -2770,7 +2770,7 @@ bool dvmResolveField(const VmMethod *method, u4 ifieldIdx, jobject obj, s8 *res,
         resField = (*env).GetFieldID(resClass, name, sign);
     }
     if (resField == nullptr) {
-        LOGE("can't found field id.");
+        LOG_E("can't found field id.");
         return false;
     }
     jvalue tmpVal;
@@ -2831,7 +2831,7 @@ bool dvmResolveField(const VmMethod *method, u4 ifieldIdx, jobject obj, s8 *res,
             break;
 
         default:
-            LOGE("error type of field...");
+            LOG_E("error type of field...");
             dvmThrowRuntimeException("error type of field... cc");
             return false;
     }
@@ -2844,11 +2844,11 @@ bool dvmResolveField(const VmMethod *method, u4 ifieldIdx, jobject obj, s8 *res,
 bool dvmResolveSetField(const VmMethod *method, u4 ifieldIdx, jobject obj, u8 res,
                         const char **ppName) {
     const DexFile *pDexFile = method->dexFile;
-//    LOGD("--- resolving field %u (referrer=%s)", ifieldIdx, method->clazzDescriptor);
+//    LOG_D("--- resolving field %u (referrer=%s)", ifieldIdx, method->clazzDescriptor);
     const DexFieldId *pFieldId = dexGetFieldId(pDexFile, ifieldIdx);
     jclass resClass = dvmResolveClass(method, pFieldId->classIdx);
     if (resClass == nullptr) {
-        LOGE("can't found jclass.");
+        LOG_E("can't found jclass.");
         return false;
     }
     jfieldID resField = nullptr;
@@ -2860,7 +2860,7 @@ bool dvmResolveSetField(const VmMethod *method, u4 ifieldIdx, jobject obj, u8 re
         resField = (*env).GetFieldID(resClass, name, sign);
     }
     if (resField == nullptr) {
-        LOGE("can't found field id.");
+        LOG_E("can't found field id.");
         return false;
     }
 
@@ -2927,7 +2927,7 @@ bool dvmResolveSetField(const VmMethod *method, u4 ifieldIdx, jobject obj, u8 re
             break;
 
         default:
-            LOGE("error type of field...");
+            LOG_E("error type of field...");
             dvmThrowRuntimeException("error type of field... cc");
             return false;
     }
@@ -2940,51 +2940,51 @@ bool dvmResolveSetField(const VmMethod *method, u4 ifieldIdx, jobject obj, u8 re
 void debugInvokeMethod(jmethodID jniMethod, const jvalue retVal, const jvalue *vars) {
     const auto *method = initVmMethodNoCode(jniMethod);
     const char *shorty = dexStringById(method->dexFile, method->protoId->shortyIdx);
-    LOGD("invoke method: %s .%s    %s", method->clazzDescriptor, method->name, shorty);
+    LOG_D("invoke method: %s .%s    %s", method->clazzDescriptor, method->name, shorty);
     deleteVmMethod(method);
     switch (shorty[0]) {
         case 'I':
-            LOGD("return value (int): %d", retVal.i);
+            LOG_D("return value (int): %d", retVal.i);
             break;
 
         case 'Z':
-            retVal.z ? LOGD("return value (bool): true") : LOGD("return value (bool): false");
+            retVal.z ? LOG_D("return value (bool): true") : LOG_D("return value (bool): false");
             break;
 
         case 'B':
-            LOGD("return value (byte): 0x%02x", retVal.b);
+            LOG_D("return value (byte): 0x%02x", retVal.b);
             break;
 
         case 'S':
-            LOGD("return value (short): %d", retVal.s);
+            LOG_D("return value (short): %d", retVal.s);
             break;
 
         case 'C':
-            LOGD("return value (char): %c", retVal.c);
+            LOG_D("return value (char): %c", retVal.c);
             break;
 
         case 'F':
-            LOGD("return value (float): %f", retVal.f);
+            LOG_D("return value (float): %f", retVal.f);
             break;
 
         case 'L':
-            LOGD("return value (object): %p", retVal.l);
+            LOG_D("return value (object): %p", retVal.l);
             break;
 
         case 'J':
-            LOGD("return value (long): %lld", retVal.j);
+            LOG_D("return value (long): %lld", retVal.j);
             break;
 
         case 'D':
-            LOGD("return value (double): %lf", retVal.d);
+            LOG_D("return value (double): %lf", retVal.d);
             break;
 
         case 'V':
-            LOGD("return value (void)");
+            LOG_D("return value (void)");
             break;
 
         default:
-            LOGE("error method's return type...");
+            LOG_E("error method's return type...");
             assert(false);
             break;
     }
@@ -2992,44 +2992,44 @@ void debugInvokeMethod(jmethodID jniMethod, const jvalue retVal, const jvalue *v
     for (int var_i = 0; shorty[var_i + 1] != '\0'; var_i++) {
         switch (shorty[var_i + 1]) {
             case 'I':
-                LOGD("var(0x%02x) value (int): %d", var_i, vars[var_i].i);
+                LOG_D("var(0x%02x) value (int): %d", var_i, vars[var_i].i);
                 break;
 
             case 'Z':
-                vars[var_i].z ? LOGD("var(0x%02x) value (bool): true", var_i) : LOGD(
+                vars[var_i].z ? LOG_D("var(0x%02x) value (bool): true", var_i) : LOG_D(
                         "var(0x%02x) value (bool): false", var_i);
                 break;
 
             case 'B':
-                LOGD("var(0x%02x) value (byte): 0x%02x", var_i, vars[var_i].b);
+                LOG_D("var(0x%02x) value (byte): 0x%02x", var_i, vars[var_i].b);
                 break;
 
             case 'S':
-                LOGD("var(0x%02x) value (short): %d", var_i, vars[var_i].s);
+                LOG_D("var(0x%02x) value (short): %d", var_i, vars[var_i].s);
                 break;
 
             case 'C':
-                LOGD("var(0x%02x) value (char): %c", var_i, vars[var_i].c);
+                LOG_D("var(0x%02x) value (char): %c", var_i, vars[var_i].c);
                 break;
 
             case 'F':
-                LOGD("var(0x%02x) value (float): %f", var_i, vars[var_i].f);
+                LOG_D("var(0x%02x) value (float): %f", var_i, vars[var_i].f);
                 break;
 
             case 'L':
-                LOGD("var(0x%02x) value (object): %p", var_i, vars[var_i].l);
+                LOG_D("var(0x%02x) value (object): %p", var_i, vars[var_i].l);
                 break;
 
             case 'J':
-                LOGD("var(0x%02x) value (long): %lld", var_i, vars[var_i].j);
+                LOG_D("var(0x%02x) value (long): %lld", var_i, vars[var_i].j);
                 break;
 
             case 'D':
-                LOGD("var(0x%02x) value (double): %lf", var_i, vars[var_i].d);
+                LOG_D("var(0x%02x) value (double): %lf", var_i, vars[var_i].d);
                 break;
 
             default:
-                LOGE("error method's return type...");
+                LOG_E("error method's return type...");
                 assert(false);
                 break;
         }
@@ -3246,7 +3246,7 @@ string classNameFromIndex(const VmMethod *method, int ref, VerifyErrorRefType re
 
 string fieldNameFromIndex(const VmMethod *method, int ref, VerifyErrorRefType refType, int flags) {
     if (refType != VERIFY_ERROR_REF_FIELD) {
-        LOGE("Expected ref type %d, got %d", VERIFY_ERROR_REF_FIELD, refType);
+        LOG_E("Expected ref type %d, got %d", VERIFY_ERROR_REF_FIELD, refType);
         return nullptr;    /* no message */
     }
 
@@ -3270,7 +3270,7 @@ string fieldNameFromIndex(const VmMethod *method, int ref, VerifyErrorRefType re
 
 string methodNameFromIndex(const VmMethod *method, int ref, VerifyErrorRefType refType, int flags) {
     if (refType != VERIFY_ERROR_REF_METHOD) {
-        LOGE("Expected ref type %d, got %d", VERIFY_ERROR_REF_METHOD, refType);
+        LOG_E("Expected ref type %d, got %d", VERIFY_ERROR_REF_METHOD, refType);
         return nullptr;    /* no message */
     }
 
@@ -3335,7 +3335,7 @@ const CodeItemData *getCodeItem(const VmMethod *method) {
 const DexFile *initDexFileInArt(const uint8_t *buf, size_t size) {
     auto *pDexHeader = (DexHeader *) buf;
 //    for (int i = 0; i < 8; i++) {
-//        LOGD("dex file buf[%d]: %c", i, buf[i]);
+//        LOG_D("dex file buf[%d]: %c", i, buf[i]);
 //    }
 
     auto *pDexFile = new DexFile();
@@ -3353,7 +3353,7 @@ const DexFile *initDexFileInArt(const uint8_t *buf, size_t size) {
     pDexFile->pLinkData = (const DexLink *) (pDexFile->baseAddr + pDexHeader->linkOff);
     // check dex file size
     if (pDexHeader->fileSize != size) {
-        LOGE("ERROR: stored file size (%d) != expected (%d)", pDexHeader->fileSize, size);
+        LOG_E("ERROR: stored file size (%d) != expected (%d)", pDexHeader->fileSize, size);
     }
     return pDexFile;
 }
@@ -3402,8 +3402,8 @@ const VmMethod *initVmMethodNoCode(jmethodID jniMethod) {
             default:
                 assert(false);
         }
-//        LOGD("%s", method->clazzDescriptor);
-//        LOGD("%s", method->name);
+//        LOG_D("%s", method->clazzDescriptor);
+//        LOG_D("%s", method->name);
 
     } else {
         const auto *dvmMethod = reinterpret_cast<const Method *>(jniMethod);

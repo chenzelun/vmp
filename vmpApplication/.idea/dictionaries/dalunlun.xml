@@ -2,27 +2,41 @@
   <dictionary name="dalunlun">
     <words>
       <w>addr</w>
+      <w>aget</w>
+      <w>aput</w>
+      <w>chkdiv</w>
       <w>cppcoreguidelines</w>
+      <w>ctype</w>
       <w>defs</w>
       <w>descr</w>
       <w>fdlinkstr</w>
       <w>fstat</w>
+      <w>ftype</w>
       <w>ifield</w>
       <w>iget</w>
+      <w>igetq</w>
       <w>insns</w>
+      <w>iput</w>
       <w>jclass</w>
+      <w>jtype</w>
       <w>ldalvik</w>
       <w>ljava</w>
+      <w>logd</w>
       <w>mmap</w>
       <w>msgs</w>
       <w>odex</w>
+      <w>opname</w>
       <w>proc</w>
       <w>prot</w>
+      <w>regsize</w>
       <w>retval</w>
+      <w>sget</w>
+      <w>shellapplication</w>
       <w>sput</w>
       <w>thiz</w>
       <w>vdst</w>
       <w>vfycount</w>
+      <w>vminterpreter</w>
       <w>vsrc</w>
     </words>
   </dictionary>

@@ -3,22 +3,22 @@
 //
 
 #include "Config.h"
-#include <unistd.h>
 #include <sys/stat.h>
 #include <android/asset_manager_jni.h>
 #include <vector>
+#include <unistd.h>
 
 
 extern ConfigFileProxy *gConfigFileProxy;
 
 void initConfigFile() {
-    LOGD("start, initConfigFile()");
+    LOG_D("start, initConfigFile()");
     ifstream reader(gConfigFileProxy->filePath, ios::binary);
 
     // get config file's size
     reader.seekg(0, ios::end);
     gConfigFileProxy->fileSize = static_cast<size_t>(reader.tellg());
-    LOGD("filePath: %s, fileSize: %d", gConfigFileProxy->filePath.data(),
+    LOG_D("filePath: %s, fileSize: %d", gConfigFileProxy->filePath.data(),
          gConfigFileProxy->fileSize);
     char buf[BUFSIZ];
 
@@ -28,35 +28,35 @@ void initConfigFile() {
     // read srcApkApplicationName
     readStr(reader, offset, &gConfigFileProxy->srcApkApplicationName, buf);
     offset += SIZE_OF_DOUBLE_UINT32;
-    LOGD("srcApkApplicationName: %s", gConfigFileProxy->srcApkApplicationName.data());
+    LOG_D("srcApkApplicationName: %s", gConfigFileProxy->srcApkApplicationName.data());
 
     // read fakeClassesDexName
     readStr(reader, offset, &gConfigFileProxy->fakeClassesDexName, buf);
     offset += SIZE_OF_DOUBLE_UINT32;
-    LOGD("fakeClassesDexName: %s", gConfigFileProxy->fakeClassesDexName.data());
+    LOG_D("fakeClassesDexName: %s", gConfigFileProxy->fakeClassesDexName.data());
 
     // read fakeClassesDexBuf
     readSizeAndOff(reader, offset, &gConfigFileProxy->fakeClassesDexBufSize,
                    &gConfigFileProxy->fakeClassesDexBufOff, buf);
     offset += SIZE_OF_DOUBLE_UINT32;
-    LOGD("fakeClassesDexBufSize: %d, fakeClassesDexBufOff: %d",
+    LOG_D("fakeClassesDexBufSize: %d, fakeClassesDexBufOff: %d",
          gConfigFileProxy->fakeClassesDexBufSize, gConfigFileProxy->fakeClassesDexBufOff);
 
     // read classes dex
     readSizeAndOff(reader, offset, &gConfigFileProxy->srcClassesDexSize,
                    &gConfigFileProxy->srcClassesDexOff, buf);
     offset += SIZE_OF_DOUBLE_UINT32;
-    LOGD("srcClassesDexSize: %d, srcClassesDexOff: %d", gConfigFileProxy->srcClassesDexSize,
+    LOG_D("srcClassesDexSize: %d, srcClassesDexOff: %d", gConfigFileProxy->srcClassesDexSize,
          gConfigFileProxy->srcClassesDexOff);
 
     // read code item
     readSizeAndOff(reader, offset, &gConfigFileProxy->srcCodeItemSize,
                    &gConfigFileProxy->srcCodeItemOff, buf);
-    LOGD("srcCodeItemSize: %d, srcCodeItemOff: %d", gConfigFileProxy->srcCodeItemSize,
+    LOG_D("srcCodeItemSize: %d, srcCodeItemOff: %d", gConfigFileProxy->srcCodeItemSize,
          gConfigFileProxy->srcCodeItemOff);
 
     reader.close();
-    LOGD("finish, initConfigFile()");
+    LOG_D("finish, initConfigFile()");
 }
 
 void readStr(ifstream &reader, size_t offset, string *pRetString, char *buf) {
@@ -74,7 +74,7 @@ void readSizeAndOff(ifstream &reader, size_t offset, size_t *pRetSize, size_t *p
     reader.read(buf, SIZE_OF_DOUBLE_UINT32);
     *pRetSize = *(size_t *) buf;
     *pRetOffset = *(size_t *) (buf + 4);
-    LOGD("readSizeAndOff, offset: %d, ret_size: %d, ret_offset: %d",
+    LOG_D("readSizeAndOff, offset: %d, ret_size: %d, ret_offset: %d",
          offset, *pRetSize, *pRetOffset);
 }
 
@@ -93,8 +93,8 @@ const string &getBaseFilesDir(JNIEnv *env) {
         assert(oPath != nullptr);
         baseDir = (*env).GetStringUTFChars(oPath, JNI_FALSE);
 
-        LOGD("getBaseFilesDir success first....");
-        LOGD("baseDir: %s", baseDir.data());
+        LOG_D("getBaseFilesDir success first....");
+        LOG_D("baseDir: %s", baseDir.data());
         (*env).DeleteLocalRef(cContext);
         (*env).DeleteLocalRef(cFile);
     }
@@ -105,8 +105,8 @@ const string &getDataDir(JNIEnv *env) {
     static string data;
     if (data.empty()) {
         data = getBaseFilesDir(env) + "/data";
-        LOGD("getDataDir success first....");
-        LOGD("dataDir: %s", data.data());
+        LOG_D("getDataDir success first....");
+        LOG_D("dataDir: %s", data.data());
     }
     return data;
 }
@@ -115,8 +115,8 @@ const string &getLibDir(JNIEnv *env) {
     static string lib;
     if (lib.empty()) {
         lib = getBaseFilesDir(env) + "/lib";
-        LOGD("getLibDir success first....");
-        LOGD("libDir: %s", lib.data());
+        LOG_D("getLibDir success first....");
+        LOG_D("libDir: %s", lib.data());
     }
     return lib;
 }
@@ -126,8 +126,8 @@ const string &getOdexDir(JNIEnv *env) {
     static string odex;
     if (odex.empty()) {
         odex = getBaseFilesDir(env) + "/odex";
-        LOGD("getOdexDir success first....");
-        LOGD("odexDir: %s", odex.data());
+        LOG_D("getOdexDir success first....");
+        LOG_D("odexDir: %s", odex.data());
     }
     return odex;
 }
@@ -136,14 +136,14 @@ const string &getDexDir(JNIEnv *env) {
     static string dex;
     if (dex.empty()) {
         dex = getBaseFilesDir(env) + "/dex";
-        LOGD("getDexDir success first....");
-        LOGD("dexDir: %s", dex.data());
+        LOG_D("getDexDir success first....");
+        LOG_D("dexDir: %s", dex.data());
     }
     return dex;
 }
 
 void buildFileSystem() {
-    LOGD("start, buildFileSystem()");
+    LOG_D("start, buildFileSystem()");
     vector<string> path = {
             getBaseFilesDir(gConfigFileProxy->env),
             getDataDir(gConfigFileProxy->env),
@@ -155,7 +155,7 @@ void buildFileSystem() {
         if (0 != access(p.data(), R_OK) &&
             0 != mkdir(p.data(), S_IRWXU | S_IRWXG | S_IRWXO)) { // NOLINT(hicpp-signed-bitwise)
             // if this folder not exist, create a new one.
-            LOGE("create dir failed: %s", p.data());
+            LOG_E("create dir failed: %s", p.data());
             throw runtime_error("create dir failed");
         }
     }
@@ -163,35 +163,35 @@ void buildFileSystem() {
     // copy file from assets
     copyFileFromAssets(gConfigFileProxy->env, gConfigFileProxy->configFileName,
                        gConfigFileProxy->filePath);
-    LOGD("finish, buildFileSystem()");
+    LOG_D("finish, buildFileSystem()");
 }
 
 void copyFileFromAssets(JNIEnv *env, const string &configFileName, const string &dstFilePath) {
-    LOGD("start, copyFileFromAssets(JNIEnv *env, const string &configFileName, const string &dstFilePath)");
-    LOGD("copyFileFromAssets start, write %s to %s", configFileName.data(), dstFilePath.data());
+    LOG_D("start, copyFileFromAssets(JNIEnv *env, const string &configFileName, const string &dstFilePath)");
+    LOG_D("copyFileFromAssets start, write %s to %s", configFileName.data(), dstFilePath.data());
     jobject oAssetsManager = getAssetsManager(env);
     AAssetManager *assetManager = AAssetManager_fromJava(env, oAssetsManager);
     assert(assetManager != nullptr);
-    LOGD("Get AssetManager success...");
+    LOG_D("Get AssetManager success...");
 
     AAsset *asset = AAssetManager_open(assetManager, configFileName.data(), AASSET_MODE_BUFFER);
     auto fileSize = AAsset_getLength(asset);
     const char *fileBuf = reinterpret_cast<const char *>(AAsset_getBuffer(asset));
-    LOGD("srcPath: %s, fileSize: %ld", configFileName.data(), fileSize);
+    LOG_D("srcPath: %s, fileSize: %ld", configFileName.data(), fileSize);
 
     ofstream writer(dstFilePath.data(), ios::binary);
     writer.write(fileBuf, fileSize);
     writer.close();
-    LOGD("finish, copyFileFromAssets(JNIEnv *env, const string &configFileName, const string &dstFilePath)");
+    LOG_D("finish, copyFileFromAssets(JNIEnv *env, const string &configFileName, const string &dstFilePath)");
 }
 
 void initConfigFileProxy(ConfigFileProxy **ppConfigFileProxy, JNIEnv *env) {
-    LOGD("start, initConfigFileProxy(ConfigFileProxy **ppConfigFileProxy, JNIEnv *env)");
+    LOG_D("start, initConfigFileProxy(ConfigFileProxy **ppConfigFileProxy, JNIEnv *env)");
     auto *proxy = new ConfigFileProxy();
     proxy->env = env;
     proxy->filePath = getDataDir(env) + "/" + proxy->configFileName;
     *ppConfigFileProxy = proxy;
-    LOGD("finish, initConfigFileProxy(ConfigFileProxy **ppConfigFileProxy, JNIEnv *env)");
+    LOG_D("finish, initConfigFileProxy(ConfigFileProxy **ppConfigFileProxy, JNIEnv *env)");
 }
 
 const char *getDataBuf(size_t off, size_t size) {
@@ -200,17 +200,17 @@ const char *getDataBuf(size_t off, size_t size) {
     reader.seekg(off, ios::beg);
     reader.read(buf, size);
     reader.close();
-    LOGD("getDataBuf(size_t off: %d, size_t size: %d)", off, size);
+    LOG_D("getDataBuf(size_t off: %d, size_t size: %d)", off, size);
     return buf;
 }
 
 const char *getCodeItemBuf() {
-    LOGD("getCodeItemBuf()");
+    LOG_D("getCodeItemBuf()");
     return getDataBuf(gConfigFileProxy->srcCodeItemOff, gConfigFileProxy->srcCodeItemSize);
 }
 
 const char *getClassesDexBuf() {
-    LOGD("getClassesDexBuf()");
+    LOG_D("getClassesDexBuf()");
     return getDataBuf(gConfigFileProxy->srcClassesDexOff, gConfigFileProxy->srcClassesDexSize);
 }
 
@@ -219,7 +219,7 @@ void buildFile(const string &srcPath, const string &desPath, unsigned int off, s
     ifstream reader(srcPath, ios::binary);
     char buf[BUFSIZ];
 
-    LOGD("start write files...   %s", desPath.data());
+    LOG_D("start write files...   %s", desPath.data());
     reader.seekg(off, ios::beg);
     while (length > 0) {
         size_t realReadSize = length >= BUFSIZ ? BUFSIZ : length;
@@ -228,7 +228,7 @@ void buildFile(const string &srcPath, const string &desPath, unsigned int off, s
         writer.write(buf, realReadSize);
     }
 
-    LOGD("finish write files...   %s", desPath.data());
+    LOG_D("finish write files...   %s", desPath.data());
     reader.close();
     writer.flush();
     writer.close();

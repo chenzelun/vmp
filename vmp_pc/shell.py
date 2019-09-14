@@ -213,13 +213,15 @@ class Shell:
         if not os.path.exists(self.tmp_out_path + '/lib'):
             os.mkdir(self.tmp_out_path + '/lib')
             shutil.copytree(self.tmp_shell_path + '/lib', self.tmp_out_path + '/lib')
-        if not os.listdir(self.tmp_out_path + '/lib'):
-            shutil.copytree(self.tmp_shell_path + '/lib', self.tmp_out_path + '/lib')
         else:
-            in_path = self.tmp_shell_path + '/lib/armeabi-v7a'
-            out_path = self.tmp_out_path + '/lib/armeabi-v7a'
-            for f in os.listdir(in_path):
-                shutil.copyfile(in_path + '/' + f, out_path + '/' + f)
+            abis = os.listdir(self.tmp_out_path + '/lib')
+            if not abis:
+                shutil.copytree(self.tmp_shell_path + '/lib', self.tmp_out_path + '/lib')
+            for abi in abis:
+                in_path = self.tmp_shell_path + '/lib/' + abi + '/'
+                out_path = self.tmp_out_path + '/lib/' + abi + '/'
+                for f in os.listdir(in_path):
+                    shutil.copyfile(in_path + '/' + f, out_path + '/' + f)
 
         self.log.debug('copy files from %s to %s', self.tmp_shell_path + '/lib', self.tmp_out_path + '/lib')
         self.log.info('encrypt_shell_so finish...')
@@ -228,7 +230,7 @@ class Shell:
         if os.path.exists(self.tmp_in_path + '/lib'):
             shutil.copytree(self.tmp_in_path + '/lib', self.tmp_out_path + '/lib')
 
-    def encrypt_src_dex(self):
+    def encrypt_in_dex(self):
         in_path, in_pkg_name, out_path = self.tmp_in_path, self.in_apk_pkg_name, self.tmp_out_path
         out_path += '/assets'
 
