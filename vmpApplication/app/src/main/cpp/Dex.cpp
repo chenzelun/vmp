@@ -70,7 +70,7 @@ void loadDexFromMemory() {
                                                      odexDir, 0);
     LOG_D("3.5");
     jfieldID fMCookie = nullptr;
-    switch (android_get_device_api_level()){
+    switch (android_get_device_api_level()) {
         case __ANDROID_API_K__:
             fMCookie = (*env).GetFieldID(cDexFile, "mCookie", "I");
             LOG_D("new cookie: 0x%08x", (*env).GetIntField(oDexFile, fMCookie));
@@ -83,6 +83,8 @@ void loadDexFromMemory() {
             break;
 
         case __ANDROID_API_M__:
+        case __ANDROID_API_O__:
+        case __ANDROID_API_O_MR1__:
             fMCookie = (*env).GetFieldID(cDexFile, "mCookie", "Ljava/lang/Object;");
             LOG_D("new cookie: %p", (*env).GetObjectField(oDexFile, fMCookie));
             break;
@@ -139,7 +141,7 @@ RawDexFile *createRawDexFileFromMemoryDalvik() {
     // check dex file size
     if (pDexHeader->fileSize != gDexFileHelper->dexLen) {
         LOG_E("ERROR: stored file size (%d) != expected (%d)",
-             pDexHeader->fileSize, gDexFileHelper->dexLen);
+              pDexHeader->fileSize, gDexFileHelper->dexLen);
     }
     LOG_D("init pDexFile, finish...");
 
@@ -180,8 +182,8 @@ RawDexFile *createRawDexFileFromMemoryDalvik() {
     blob += methodSize;
     pDvmDex->pResFields = (struct Field **) blob;
     LOG_D("+++ DEX %p: allocateAux (%d+%d+%d+%d)*4 = %d bytes",
-         pDvmDex, stringSize / 4, classSize / 4, methodSize / 4, fieldSize / 4,
-         stringSize + classSize + methodSize + fieldSize);
+          pDvmDex, stringSize / 4, classSize / 4, methodSize / 4, fieldSize / 4,
+          stringSize + classSize + methodSize + fieldSize);
 
     auto *newCache = new AtomicCache();
     newCache->numEntries = DEX_INTERFACE_CACHE_SIZE;
@@ -248,9 +250,9 @@ RawDexFile *createRawDexFileFromMemoryDalvik() {
         totalProbes += numProbes;
     }
     LOG_D("Class lookup: classes=%d slots=%d (%d%% occ) alloc=%d total=%d max=%d",
-         pDexFile->pHeader->classDefsSize, numEntries,
-         (100 * pDexFile->pHeader->classDefsSize) / numEntries,
-         allocSize, totalProbes, maxProbes);
+          pDexFile->pHeader->classDefsSize, numEntries,
+          (100 * pDexFile->pHeader->classDefsSize) / numEntries,
+          allocSize, totalProbes, maxProbes);
     LOG_D("init pClassLookup, finish...");
 
     pDvmDex->pDexFile->pClassLookup = pClassLookup;
@@ -409,31 +411,48 @@ bool hookMmap() {
     return hookFlag;
 }
 
-bool (*sysDexFileOpen)(const char *filename, const char *location, string *error_msg,
-                       vector<void *> *dex_files) = nullptr;
+bool (*sysDexFileOpen_21_23)(const char *filename, const char *location, string *error_msg,
+                             vector<void *> *dex_files) = nullptr;
 
-bool myDexFileOpen(const char *filename, const char *location, string *error_msg,
-                   vector<void *> *dex_files) {
-    return sysDexFileOpen(filename, location, error_msg, dex_files);
+bool myDexFileOpen_21_23(const char *filename, const char *location, string *error_msg,
+                         vector<void *> *dex_files) {
+    return sysDexFileOpen_21_23(filename, location, error_msg, dex_files);
+}
+
+bool (*sysDexFileOpen_26_27)(const char *filename, const string &location, bool verify_checksum,
+                             string *error_msg, vector<void *> *dex_files) = nullptr;
+
+bool myDexFileOpen_26_27(const char *filename, const string &location, bool verify_checksum,
+                         string *error_msg, vector<void *> *dex_files) {
+    return sysDexFileOpen_26_27(filename, location, verify_checksum, error_msg, dex_files);
 }
 
 bool hookDexFileOpen() {
     static bool hookFlag = false;
     if (!hookFlag) {
-        switch (android_get_device_api_level()){
+        switch (android_get_device_api_level()) {
             case __ANDROID_API_L__:
             case __ANDROID_API_L_MR1__:
                 hookFlag = HookNativeInline("/system/lib/libart.so",
                                             "_ZN3art7DexFile4OpenEPKcS2_PNSt3__112basic_stringIcNS3_11char_traitsIcEENS3_9allocatorIcEEEEPNS3_6vectorIPKS0_NS7_ISD_EEEE",
-                                            reinterpret_cast<void *>(myDexFileOpen),
-                                            reinterpret_cast<void **>(&sysDexFileOpen));
+                                            reinterpret_cast<void *>(myDexFileOpen_21_23),
+                                            reinterpret_cast<void **>(&sysDexFileOpen_21_23));
                 break;
             case __ANDROID_API_M__:
                 hookFlag = HookNativeInline("/system/lib/libart.so",
                                             "_ZN3art7DexFile4OpenEPKcS2_PNSt3__112basic_stringIcNS3_11char_traitsIcEENS3_9allocatorIcEEEEPNS3_6vectorINS3_10unique_ptrIKS0_NS3_14default_deleteISD_EEEENS7_ISG_EEEE",
-                                            reinterpret_cast<void *>(myDexFileOpen),
-                                            reinterpret_cast<void **>(&sysDexFileOpen));
+                                            reinterpret_cast<void *>(myDexFileOpen_21_23),
+                                            reinterpret_cast<void **>(&sysDexFileOpen_21_23));
                 break;
+
+            case __ANDROID_API_O__:
+            case __ANDROID_API_O_MR1__:
+                hookFlag = HookNativeInline("/system/lib/libart.so",
+                                            "_ZN3art7DexFile4OpenEPKcS2_PNSt3__112basic_stringIcNS3_11char_traitsIcEENS3_9allocatorIcEEEEPNS3_6vectorINS3_10unique_ptrIKS0_NS3_14default_deleteISD_EEEENS7_ISG_EEEE",
+                                            reinterpret_cast<void *>(myDexFileOpen_26_27),
+                                            reinterpret_cast<void **>(&sysDexFileOpen_26_27));
+                break;
+
             default:
                 assert(false);
         }
@@ -441,20 +460,39 @@ bool hookDexFileOpen() {
     return hookFlag;
 }
 
+bool
+(*sysOpenDexFilesFromOat_21_22)(void *thiz, const char *dex_location, const char *oat_location,
+                                vector<string> *error_msgs, vector<void *> *dex_files) = nullptr;
+
+bool
+myOpenDexFilesFromOat_21_22(void *thiz, const char *dex_location, const char *oat_location,
+                            vector<string> *error_msgs, vector<void *> *dex_files) {
+    LOG_D("dex_location: %s", dex_location);
+    if (strcmp(dex_location, gDexFileHelper->fakeClassesDexName.data()) == 0) {
+        string error_msg;
+        if (!sysDexFileOpen_21_23(dex_location, dex_location, &error_msg, dex_files)) {
+            LOG_E("Failed to open dex files from %s", dex_location);
+            LOG_E("DexFileOpen error: %s", error_msg.data());
+            error_msgs->push_back("Failed to open dex files from " + string(dex_location));
+        }
+        LOG_D("DexFileOpen, success");
+        return true;
+    }
+    return sysOpenDexFilesFromOat_21_22(thiz, dex_location, oat_location, error_msgs, dex_files);
+}
 
 vector<void *>
 (*sysOpenDexFilesFromOat_23)(void *thiz, const char *dex_location, const char *oat_location,
-                          vector<string> *error_msgs) = nullptr;
+                             vector<string> *error_msgs) = nullptr;
 
 vector<void *>
 myOpenDexFilesFromOat_23(void *thiz, const char *dex_location, const char *oat_location,
-                      vector<string> *error_msgs) {
+                         vector<string> *error_msgs) {
     LOG_D("dex_location: %s", dex_location);
-    LOG_D("oat_location: %s", oat_location);
     if (strcmp(dex_location, gDexFileHelper->fakeClassesDexName.data()) == 0) {
         vector<void *> dexFiles;
         string error_msg;
-        if (!sysDexFileOpen(dex_location, dex_location, &error_msg, &dexFiles)) {
+        if (!sysDexFileOpen_21_23(dex_location, dex_location, &error_msg, &dexFiles)) {
             LOG_E("Failed to open dex files from %s", dex_location);
             LOG_E("DexFileOpen error: %s", error_msg.data());
             error_msgs->push_back("Failed to open dex files from " + string(dex_location));
@@ -465,26 +503,29 @@ myOpenDexFilesFromOat_23(void *thiz, const char *dex_location, const char *oat_l
     return sysOpenDexFilesFromOat_23(thiz, dex_location, oat_location, error_msgs);
 }
 
-bool
-(*sysOpenDexFilesFromOat_21_22)(void *thiz, const char *dex_location, const char *oat_location,
-                                vector<string> *error_msgs, vector<void *>* dex_files) = nullptr;
+vector<void *>
+(*sysOpenDexFilesFromOat_26_27)(void *thiz, const char *dex_location, jobject class_loader,
+                                jobjectArray dex_elements, const void **out_oat_file,
+                                vector<string> *error_msgs) = nullptr;
 
-bool
-myOpenDexFilesFromOat_21_22(void *thiz, const char *dex_location, const char *oat_location,
-                            vector<string> *error_msgs, vector<void *>* dex_files){
+vector<void *>
+myOpenDexFilesFromOat_26_27(void *thiz, const char *dex_location, jobject class_loader,
+                            jobjectArray dex_elements, const void **out_oat_file,
+                            vector<string> *error_msgs) {
     LOG_D("dex_location: %s", dex_location);
-    LOG_D("oat_location: %s", oat_location);
     if (strcmp(dex_location, gDexFileHelper->fakeClassesDexName.data()) == 0) {
+        vector<void *> dexFiles;
         string error_msg;
-        if (!sysDexFileOpen(dex_location, dex_location, &error_msg, dex_files)) {
+        if (!sysDexFileOpen_26_27(dex_location, dex_location, true, &error_msg, &dexFiles)) {
             LOG_E("Failed to open dex files from %s", dex_location);
             LOG_E("DexFileOpen error: %s", error_msg.data());
             error_msgs->push_back("Failed to open dex files from " + string(dex_location));
         }
         LOG_D("DexFileOpen, success");
-        return true;
+        return dexFiles;
     }
-    return sysOpenDexFilesFromOat_21_22(thiz, dex_location, oat_location, error_msgs, dex_files);
+    return sysOpenDexFilesFromOat_26_27(thiz, dex_location, class_loader, dex_elements,
+                                        out_oat_file, error_msgs);
 }
 
 bool hookOpenDexFilesFromOat() {
@@ -506,6 +547,14 @@ bool hookOpenDexFilesFromOat() {
                                             reinterpret_cast<void *>(myOpenDexFilesFromOat_23),
                                             reinterpret_cast<void **>(&sysOpenDexFilesFromOat_23));
                 break;
+
+            case __ANDROID_API_O__:
+            case __ANDROID_API_O_MR1__:
+                hookFlag = HookNativeInline("/system/lib/libart.so",
+                                            "_ZN3art14OatFileManager19OpenDexFilesFromOatEPKcP8_jobjectP13_jobjectArrayPPKNS_7OatFileEPNSt3__16vectorINSB_12basic_stringIcNSB_11char_traitsIcEENSB_9allocatorIcEEEENSG_ISI_EEEE",
+                                            reinterpret_cast<void *>(myOpenDexFilesFromOat_26_27),
+                                            reinterpret_cast<void **>(&sysOpenDexFilesFromOat_26_27));
+                break;
             default:
                 assert(false);
         }
@@ -515,27 +564,39 @@ bool hookOpenDexFilesFromOat() {
 }
 
 void *
-(*sysDexFileOpenFile_23)(void *thiz, int fd, const char *location, bool verify,
-                      string *error_msg) = nullptr;
-
-void *myDexFileOpenFile_23(void *thiz, int fd, const char *location, bool verify, string *error_msg) {
-    LOG_D("location: %s, verify: %s", location, verify ? "true" : "false");
-    return sysDexFileOpenFile_23(thiz, fd, location, false, error_msg);
-}
-
-void *
 (*sysDexFileOpenFile_21_22)(int fd, const char *location, bool verify,
-                      string *error_msg) = nullptr;
+                            string *error_msg) = nullptr;
 
 void *myDexFileOpenFile_21_22(int fd, const char *location, bool verify, string *error_msg) {
     LOG_D("location: %s, verify: %s", location, verify ? "true" : "false");
     return sysDexFileOpenFile_21_22(fd, location, false, error_msg);
 }
 
+void *
+(*sysDexFileOpenFile_23)(void *thiz, int fd, const char *location, bool verify,
+                         string *error_msg) = nullptr;
+
+void *
+myDexFileOpenFile_23(void *thiz, int fd, const char *location, bool verify, string *error_msg) {
+    LOG_D("location: %s, verify: %s", location, verify ? "true" : "false");
+    return sysDexFileOpenFile_23(thiz, fd, location, false, error_msg);
+}
+
+void *
+(*sysDexFileOpenFile_26_27)(void *thiz, int fd, const string &location, bool verify,
+                            bool verify_checksum,
+                            string *error_msg) = nullptr;
+
+void *myDexFileOpenFile_26_27(void *thiz, int fd, const string &location, bool verify,
+                              bool verify_checksum, string *error_msg) {
+    LOG_D("location: %s, verify: %s", location.data(), verify ? "true" : "false");
+    return sysDexFileOpenFile_26_27(thiz, fd, location, false, verify_checksum, error_msg);
+}
+
 bool hookDexFileOpenFile() {
     static bool hookFlag = false;
     if (!hookFlag) {
-        switch (android_get_device_api_level()){
+        switch (android_get_device_api_level()) {
             case __ANDROID_API_L__:
             case __ANDROID_API_L_MR1__:
                 hookFlag = HookNativeInline("/system/lib/libart.so",
@@ -543,11 +604,20 @@ bool hookDexFileOpenFile() {
                                             reinterpret_cast<void *>(myDexFileOpenFile_21_22),
                                             reinterpret_cast<void **>(&sysDexFileOpenFile_21_22));
                 break;
+
             case __ANDROID_API_M__:
                 hookFlag = HookNativeInline("/system/lib/libart.so",
                                             "_ZN3art7DexFile8OpenFileEiPKcbPNSt3__112basic_stringIcNS3_11char_traitsIcEENS3_9allocatorIcEEEE",
                                             reinterpret_cast<void *>(myDexFileOpenFile_23),
                                             reinterpret_cast<void **>(&sysDexFileOpenFile_23));
+                break;
+
+            case __ANDROID_API_O__:
+            case __ANDROID_API_O_MR1__:
+                hookFlag = HookNativeInline("/system/lib/libart.so",
+                                            "_ZN3art7DexFile8OpenFileEiRKNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEEbbPS7_",
+                                            reinterpret_cast<void *>(myDexFileOpenFile_26_27),
+                                            reinterpret_cast<void **>(&sysDexFileOpenFile_26_27));
                 break;
             default:
                 assert(false);

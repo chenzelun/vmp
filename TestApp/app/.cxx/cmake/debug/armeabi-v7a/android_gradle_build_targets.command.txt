@@ -1,8 +1,0 @@
-Executable : C:\Users\dalunlun\AppData\Local\Android\Sdk\cmake\3.10.2.4988404\bin\ninja.exe
-arguments : 
--C
-C:\Users\dalunlun\Documents\czl_git\vmp\TestApp\app\.cxx\cmake\debug\armeabi-v7a
-hello
-native-lib
-jvmArgs : 
-

@@ -1,6 +1,7 @@
 package com.chend.testapp;
 
-import android.support.v7.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatActivity;
+
 import android.os.Bundle;
 
 public class Main2Activity extends AppCompatActivity {
@@ -10,6 +11,4 @@ public class Main2Activity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main2);
     }
-
-
 }

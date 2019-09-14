@@ -62,26 +62,34 @@ void *myMmap(void *addr, size_t size, int prot, int flags, int fd, off_t offset)
 
 bool hookMmap();
 
-vector<void *>
-myOpenDexFilesFromOat_23(void *thiz, const char *dex_location, const char *oat_location,
-                         vector<string> *error_msgs);
-
 bool
 myOpenDexFilesFromOat_21_22(void *thiz, const char *dex_location, const char *oat_location,
                             vector<string> *error_msgs, vector<void *> *dex_files);
 
+vector<void *>
+myOpenDexFilesFromOat_23(void *thiz, const char *dex_location, const char *oat_location,
+                         vector<string> *error_msgs);
+
+
 bool hookOpenDexFilesFromOat();
 
 bool
-myDexFileOpen(const char *filename, const char *location, string *error_msg,
-              vector<void *> *dex_files);
+myDexFileOpen_21_23(const char *filename, const char *location, string *error_msg,
+                    vector<void *> *dex_files);
+
+bool myDexFileOpen_26_27(const char *filename, const string &location, bool verify_checksum,
+                         string *error_msg, vector<void *> *dex_files);
 
 bool hookDexFileOpen();
+
+void *myDexFileOpenFile_21_22(int fd, const char *location, bool verify, string *error_msg);
 
 void *
 myDexFileOpenFile_23(void *thiz, int fd, const char *location, bool verify, std::string *error_msg);
 
-void *myDexFileOpenFile_21_22(int fd, const char *location, bool verify, string *error_msg);
+void *
+myDexFileOpenFile_26_27(void *thiz, int fd, const string &location, bool verify,
+                        bool verify_checksum, string *error_msg);
 
 bool hookDexFileOpenFile();
 

@@ -1,16 +1,3 @@
 # ninja log v5
-0	29	0	clean	948300f734c1c682
-20	281	590151804	CMakeFiles/hello.dir/Hello.cpp.o	c6739628bba05176
-282	544	590151805	C:/Users/dalunlun/Documents/czl_git/vmp/TestApp/app/build/intermediates/cmake/debug/obj/armeabi-v7a/libhello.so	67f29458b463cff4
-1	610	590151805	CMakeFiles/native-lib.dir/native-lib.cpp.o	cc8611d84325bb52
-614	911	590151805	C:/Users/dalunlun/Documents/czl_git/vmp/TestApp/app/build/intermediates/cmake/debug/obj/armeabi-v7a/libnative-lib.so	4a63e9473d69546e
-1	36	0	clean	948300f734c1c682
-26	260	590151868	CMakeFiles/hello.dir/Hello.cpp.o	c6739628bba05176
-261	504	590151868	C:/Users/dalunlun/Documents/czl_git/vmp/TestApp/app/build/intermediates/cmake/debug/obj/armeabi-v7a/libhello.so	67f29458b463cff4
-5	634	590151868	CMakeFiles/native-lib.dir/native-lib.cpp.o	cc8611d84325bb52
-635	990	590151869	C:/Users/dalunlun/Documents/czl_git/vmp/TestApp/app/build/intermediates/cmake/debug/obj/armeabi-v7a/libnative-lib.so	4a63e9473d69546e
-0	33	0	clean	948300f734c1c682
-76	385	590151916	CMakeFiles/hello.dir/Hello.cpp.o	c6739628bba05176
-386	670	590151916	C:/Users/dalunlun/Documents/czl_git/vmp/TestApp/app/build/intermediates/cmake/debug/obj/armeabi-v7a/libhello.so	67f29458b463cff4
-6	775	590151916	CMakeFiles/native-lib.dir/native-lib.cpp.o	cc8611d84325bb52
-775	1290	590151917	C:/Users/dalunlun/Documents/czl_git/vmp/TestApp/app/build/intermediates/cmake/debug/obj/armeabi-v7a/libnative-lib.so	4a63e9473d69546e
+2	1173	590167630	CMakeFiles/native-lib.dir/native-lib.cpp.o	7abb1e446c566929
+1177	1545	590167631	C:/Users/ChenD/Documents/czl_git/vmp/TestApp/app/build/intermediates/cmake/debug/obj/armeabi-v7a/libnative-lib.so	c1f0c785ca7230bf
