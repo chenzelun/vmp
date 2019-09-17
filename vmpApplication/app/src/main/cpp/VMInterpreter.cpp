@@ -9,325 +9,282 @@
 #include "Dex.h"
 #include <algorithm>
 
-
 extern JNIEnv *env;
 
 
 void
-dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, jvalue *pResult) {
+dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *reg,
+             jvalue *pResult) {
 
     /* core state */
     const u2 *pc;               // program counter
     const u2 *curInsns = curMethod->code->insns;
     u2 inst;                    // current instruction
     /* instruction decoding */
-    u4 ref;                     // 16 or 32-bit quantity fetched directly
+    u4 ref;               // 16 or 32-bit quantity fetched directly
     u2 vsrc1, vsrc2, vdst;      // usually used for register indexes
     jvalue retval;
+    retval.j = 0;
 
     jthrowable curException = nullptr;
 
     bool methodCallRange = false;
     jmethodID methodToCall = nullptr;
+    VmMethod *vmMethodToCall = new VmMethod();
     MethodType methodToCallType = METHOD_UNKNOWN;
     jclass methodToCallClazz = nullptr;
 
     pc = curInsns;
 
-    int curOp;
+    u4 curOp;
 
     FINISH(0);                  /* fetch and execute first instruction */
 
-
     NEXT_INSNS:
-
-
     switch (curOp) {
         // 0x00-0x0c
-        case OP_NOP:
-            HANDLE_OPCODE(OP_NOP) FINISH(1);
-            OP_END
+        case OP_NOP: HANDLE_OPCODE(OP_NOP)
+            FINISH(1);
+        OP_END
 
-        case OP_MOVE:
-            HANDLE_OPCODE(OP_MOVE /*vA, vB*/)
+        case OP_MOVE: HANDLE_OPCODE(OP_MOVE /*vA, vB*/)
             vdst = static_cast<u2>(INST_A(inst));
             vsrc1 = INST_B(inst);
             LOG_D("|move%s v%d,v%d %s(v%d=0x%08x)",
-                 (INST_INST(inst) == OP_MOVE) ? "" : "-object", vdst, vsrc1,
-                 kSpacing, vdst, GET_REGISTER(vsrc1));
+                  (INST_INST(inst) == OP_MOVE) ? "" : "-object", vdst, vsrc1,
+                  kSpacing, vdst, GET_REGISTER(vsrc1));
             SET_REGISTER(vdst, GET_REGISTER(vsrc1));
             FINISH(1);
-            OP_END
+        OP_END
 
-        case OP_MOVE_FROM16:
-            HANDLE_OPCODE(OP_MOVE_FROM16 /*vAA, vBBBB*/)
+        case OP_MOVE_FROM16: HANDLE_OPCODE(OP_MOVE_FROM16 /*vAA, vBBBB*/)
             vdst = INST_AA(inst);
             vsrc1 = FETCH(1);
             LOG_D("|move%s/from16 v%d,v%d %s(v%d=0x%08x)",
-                 (INST_INST(inst) == OP_MOVE_FROM16) ? "" : "-object", vdst, vsrc1,
-                 kSpacing, vdst, GET_REGISTER(vsrc1));
+                  (INST_INST(inst) == OP_MOVE_FROM16) ? "" : "-object", vdst, vsrc1,
+                  kSpacing, vdst, GET_REGISTER(vsrc1));
             SET_REGISTER(vdst, GET_REGISTER(vsrc1));
             FINISH(2);
-            OP_END
+        OP_END
 
-        case OP_MOVE_16:
-            HANDLE_OPCODE(OP_MOVE_16 /*vAAAA, vBBBB*/)
+        case OP_MOVE_16: HANDLE_OPCODE(OP_MOVE_16 /*vAAAA, vBBBB*/)
             vdst = FETCH(1);
             vsrc1 = FETCH(2);
             LOG_D("|move%s/16 v%d,v%d %s(v%d=0x%08x)",
-                 (INST_INST(inst) == OP_MOVE_16) ? "" : "-object", vdst, vsrc1,
-                 kSpacing, vdst, GET_REGISTER(vsrc1));
+                  (INST_INST(inst) == OP_MOVE_16) ? "" : "-object", vdst, vsrc1,
+                  kSpacing, vdst, GET_REGISTER(vsrc1));
             SET_REGISTER(vdst, GET_REGISTER(vsrc1));
             FINISH(3);
-            OP_END
+        OP_END
 
-        case OP_MOVE_WIDE:
-            HANDLE_OPCODE(OP_MOVE_WIDE /*vA, vB*/)
+        case OP_MOVE_WIDE: HANDLE_OPCODE(OP_MOVE_WIDE /*vA, vB*/)
             /* IMPORTANT: must correctly handle overlapping registers, e.g. both
             * "move-wide v6, v7" and "move-wide v7, v6" */
             vdst = static_cast<u2>(INST_A(inst));
             vsrc1 = INST_B(inst);
-            LOG_D("|move-wide v%d,v%d %s(v%d=0x%08llx)", vdst, vsrc1,
-                 kSpacing + 5, vdst, GET_REGISTER_WIDE(vsrc1));
+            LOG_D("|move-wide v%d,v%d %s(v%d=0x%016lx)", vdst, vsrc1,
+                  kSpacing + 5, vdst, GET_REGISTER_WIDE(vsrc1));
             SET_REGISTER_WIDE(vdst, GET_REGISTER_WIDE(vsrc1));
             FINISH(1);
-            OP_END
+        OP_END
 
-        case OP_MOVE_WIDE_FROM16:
-            HANDLE_OPCODE(OP_MOVE_WIDE_FROM16 /*vAA, vBBBB*/)
+        case OP_MOVE_WIDE_FROM16: HANDLE_OPCODE(OP_MOVE_WIDE_FROM16 /*vAA, vBBBB*/)
             vdst = INST_AA(inst);
             vsrc1 = FETCH(1);
-            LOG_D("|move-wide/from16 v%d,v%d  (v%d=0x%08llx)", vdst, vsrc1,
-                 vdst, GET_REGISTER_WIDE(vsrc1));
+            LOG_D("|move-wide/from16 v%d,v%d  (v%d=0x%016lx)", vdst, vsrc1,
+                  vdst, GET_REGISTER_WIDE(vsrc1));
             SET_REGISTER_WIDE(vdst, GET_REGISTER_WIDE(vsrc1));
             FINISH(2);
-            OP_END
+        OP_END
 
-        case OP_MOVE_WIDE_16:
-            HANDLE_OPCODE(OP_MOVE_WIDE_16 /*vAAAA, vBBBB*/)
+        case OP_MOVE_WIDE_16: HANDLE_OPCODE(OP_MOVE_WIDE_16 /*vAAAA, vBBBB*/)
             vdst = FETCH(1);
             vsrc1 = FETCH(2);
-            LOG_D("|move-wide/16 v%d,v%d %s(v%d=0x%08llx)", vdst, vsrc1,
-                 kSpacing + 8, vdst, GET_REGISTER_WIDE(vsrc1));
+            LOG_D("|move-wide/16 v%d,v%d %s(v%d=0x%016lx)", vdst, vsrc1,
+                  kSpacing + 8, vdst, GET_REGISTER_WIDE(vsrc1));
             SET_REGISTER_WIDE(vdst, GET_REGISTER_WIDE(vsrc1));
             FINISH(3);
-            OP_END
+        OP_END
 
-        case OP_MOVE_OBJECT:
-            HANDLE_OPCODE(OP_MOVE_OBJECT /*vA, vB*/)
+        case OP_MOVE_OBJECT: HANDLE_OPCODE(OP_MOVE_OBJECT /*vA, vB*/)
             vdst = static_cast<u2>(INST_A(inst));
             vsrc1 = INST_B(inst);
-            LOG_D("|move%s v%d,v%d %s(v%d=0x%08x)",
-                 (INST_INST(inst) == OP_MOVE) ? "" : "-object", vdst, vsrc1,
-                 kSpacing, vdst, GET_REGISTER(vsrc1));
-            SET_REGISTER(vdst, GET_REGISTER(vsrc1));
+            LOG_D("|move%s v%d,v%d %s(v%d=%p)",
+                  (INST_INST(inst) == OP_MOVE) ? "" : "-object", vdst, vsrc1,
+                  kSpacing, vdst, GET_REGISTER_AS_OBJECT(vsrc1));
+            SET_REGISTER_AS_OBJECT(vdst, GET_REGISTER_AS_OBJECT(vsrc1));
             FINISH(1);
-            OP_END
+        OP_END
 
-
-        case OP_MOVE_OBJECT_FROM16:
-            HANDLE_OPCODE(OP_MOVE_OBJECT_FROM16 /*vAA, vBBBB*/)
+        case OP_MOVE_OBJECT_FROM16: HANDLE_OPCODE(OP_MOVE_OBJECT_FROM16 /*vAA, vBBBB*/)
             vdst = INST_AA(inst);
             vsrc1 = FETCH(1);
-            LOG_D("|move%s/from16 v%d,v%d %s(v%d=0x%08x)",
-                 (INST_INST(inst) == OP_MOVE_FROM16) ? "" : "-object", vdst, vsrc1,
-                 kSpacing, vdst, GET_REGISTER(vsrc1));
-            SET_REGISTER(vdst, GET_REGISTER(vsrc1));
+            LOG_D("|move%s/from16 v%d,v%d %s(v%d=%p)",
+                  (INST_INST(inst) == OP_MOVE_FROM16) ? "" : "-object", vdst, vsrc1,
+                  kSpacing, vdst, GET_REGISTER_AS_OBJECT(vsrc1));
+            SET_REGISTER_AS_OBJECT(vdst, GET_REGISTER_AS_OBJECT(vsrc1));
             FINISH(2);
-            OP_END
+        OP_END
 
-
-        case OP_MOVE_OBJECT_16:
-            HANDLE_OPCODE(OP_MOVE_OBJECT_16 /*vAAAA, vBBBB*/)
+        case OP_MOVE_OBJECT_16: HANDLE_OPCODE(OP_MOVE_OBJECT_16 /*vAAAA, vBBBB*/)
             vdst = FETCH(1);
             vsrc1 = FETCH(2);
-            LOG_D("|move%s/16 v%d,v%d %s(v%d=0x%08x)",
-                 (INST_INST(inst) == OP_MOVE_16) ? "" : "-object", vdst, vsrc1,
-                 kSpacing, vdst, GET_REGISTER(vsrc1));
-            SET_REGISTER(vdst, GET_REGISTER(vsrc1));
+            LOG_D("|move%s/16 v%d,v%d %s(v%d=%p)",
+                  (INST_INST(inst) == OP_MOVE_16) ? "" : "-object", vdst, vsrc1,
+                  kSpacing, vdst, GET_REGISTER_AS_OBJECT(vsrc1));
+            SET_REGISTER_AS_OBJECT(vdst, GET_REGISTER_AS_OBJECT(vsrc1));
             FINISH(3);
-            OP_END
+        OP_END
 
-
-        case OP_MOVE_RESULT:
-            HANDLE_OPCODE(OP_MOVE_RESULT /*vAA*/)
+        case OP_MOVE_RESULT: HANDLE_OPCODE(OP_MOVE_RESULT /*vAA*/)
             vdst = INST_AA(inst);
             LOG_D("|move-result%s v%d %s(v%d=0x%08x)",
-                 (INST_INST(inst) == OP_MOVE_RESULT) ? "" : "-object",
-                 vdst, kSpacing + 4, vdst, retval.i);
+                  (INST_INST(inst) == OP_MOVE_RESULT) ? "" : "-object",
+                  vdst, kSpacing + 4, vdst, retval.i);
             SET_REGISTER(vdst, retval.i);
             FINISH(1);
-            OP_END
+        OP_END
 
-        case OP_MOVE_RESULT_WIDE:
-            HANDLE_OPCODE(OP_MOVE_RESULT_WIDE /*vAA*/)
+        case OP_MOVE_RESULT_WIDE: HANDLE_OPCODE(OP_MOVE_RESULT_WIDE /*vAA*/)
             vdst = INST_AA(inst);
-            LOG_D("|move-result-wide v%d %s(0x%08llx)", vdst, kSpacing, retval.j);
+            LOG_D("|move-result-wide v%d %s(0x%016lx)", vdst, kSpacing, retval.j);
             SET_REGISTER_WIDE(vdst, retval.j);
             FINISH(1);
-            OP_END
+        OP_END
 
-        case OP_MOVE_RESULT_OBJECT:
-            HANDLE_OPCODE(OP_MOVE_RESULT_OBJECT /*vAA*/)
+        case OP_MOVE_RESULT_OBJECT: HANDLE_OPCODE(OP_MOVE_RESULT_OBJECT /*vAA*/)
             vdst = INST_AA(inst);
-            LOG_D("|move-result%s v%d %s(v%d=0x%08x)",
-                 (INST_INST(inst) == OP_MOVE_RESULT) ? "" : "-object",
-                 vdst, kSpacing + 4, vdst, retval.i);
-            SET_REGISTER(vdst, retval.i);
+            LOG_D("|move-result%s v%d %s(v%d=0x%p)",
+                  (INST_INST(inst) == OP_MOVE_RESULT) ? "" : "-object",
+                  vdst, kSpacing + 4, vdst, retval.l);
+            SET_REGISTER_AS_OBJECT(vdst, retval.l);
             FINISH(1);
-            OP_END
+        OP_END
 
-        case OP_MOVE_EXCEPTION:
-            HANDLE_OPCODE(OP_MOVE_EXCEPTION /*vAA*/)
+        case OP_MOVE_EXCEPTION: HANDLE_OPCODE(OP_MOVE_EXCEPTION /*vAA*/)
             vdst = INST_AA(inst);
             LOG_D("|move-exception v%d", vdst);
             assert(curException != NULL);
-            SET_REGISTER(vdst, (u4) curException);
+            SET_REGISTER_AS_OBJECT(vdst, curException);
             curException = nullptr;
             FINISH(1);
-            OP_END
+        OP_END
 
             // 0x0e-1c
-        case OP_RETURN_VOID:
-            HANDLE_OPCODE(OP_RETURN_VOID /**/)
+        case OP_RETURN_VOID: HANDLE_OPCODE(OP_RETURN_VOID /**/)
             LOG_D("|return-void");
-            OP_END
+        OP_END
             break;
 
-        case OP_RETURN:
-            HANDLE_OPCODE(OP_RETURN /*vAA*/)
+        case OP_RETURN: HANDLE_OPCODE(OP_RETURN /*vAA*/)
             vsrc1 = INST_AA(inst);
             LOG_D("|return%s v%d", (INST_INST(inst) == OP_RETURN) ? "" : "-object", vsrc1);
-            retval.i = GET_REGISTER(vsrc1);
-            OP_END
+            retval.j = 0;       //init
+            retval.i = GET_REGISTER_INT(vsrc1);
+        OP_END
             break;
 
-        case OP_RETURN_WIDE:
-            HANDLE_OPCODE(OP_RETURN_WIDE /*vAA*/)
+        case OP_RETURN_WIDE: HANDLE_OPCODE(OP_RETURN_WIDE /*vAA*/)
             vsrc1 = INST_AA(inst);
             LOG_D("|return-wide v%d", vsrc1);
             retval.j = GET_REGISTER_WIDE(vsrc1);
-            OP_END
+        OP_END
             break;
 
-        case OP_RETURN_OBJECT:
-            HANDLE_OPCODE(OP_RETURN_OBJECT /*vAA*/)
+        case OP_RETURN_OBJECT: HANDLE_OPCODE(OP_RETURN_OBJECT /*vAA*/)
             vsrc1 = INST_AA(inst);
             LOG_D("|return%s v%d",
-                 (INST_INST(inst) == OP_RETURN) ? "" : "-object", vsrc1);
-            retval.i = GET_REGISTER(vsrc1);
-            OP_END
+                  (INST_INST(inst) == OP_RETURN) ? "" : "-object", vsrc1);
+            retval.l = GET_REGISTER_AS_OBJECT(vsrc1);
+        OP_END
             break;
 
-        case OP_CONST_4:
-            HANDLE_OPCODE(OP_CONST_4 /*vA, #+B*/) {
-            s4 tmp;
-
+        case OP_CONST_4: HANDLE_OPCODE(OP_CONST_4 /*vA, #+B*/)
             vdst = static_cast<u2>(INST_A(inst));
-            tmp = (s4) (INST_B(inst) << 28) >> 28;  // sign extend 4-bit value
-            LOG_D("|const/4 v%d,#0x%02x", vdst, (s4) tmp);
+            s4 tmp = (s4) (INST_B(inst) << 28) >> 28;  // sign extend 4-bit value
+            LOG_D("|const/4 v%d,#0x%02x", vdst, tmp);
             SET_REGISTER(vdst, tmp);
-        }
             FINISH(1);
-            OP_END
+        OP_END
 
-        case OP_CONST_16:
-            HANDLE_OPCODE(OP_CONST_16 /*vAA, #+BBBB*/)
+        case OP_CONST_16: HANDLE_OPCODE(OP_CONST_16 /*vAA, #+BBBB*/)
             vdst = INST_AA(inst);
             vsrc1 = FETCH(1);
             LOG_D("|const/16 v%d,#0x%04x", vdst, (s2) vsrc1);
             SET_REGISTER(vdst, (s2) vsrc1);
             FINISH(2);
-            OP_END
+        OP_END
 
-        case OP_CONST:
-            HANDLE_OPCODE(OP_CONST /*vAA, #+BBBBBBBB*/) {
-            u4 tmp;
-
+        case OP_CONST: HANDLE_OPCODE(OP_CONST /*vAA, #+BBBBBBBB*/)
             vdst = INST_AA(inst);
-            tmp = FETCH(1);
+            u4 tmp = FETCH(1);
             tmp |= (u4) FETCH(2) << 16;
             LOG_D("|const v%d,#0x%08x", vdst, tmp);
             SET_REGISTER(vdst, tmp);
-        }
             FINISH(3);
-            OP_END
+        OP_END
 
-        case OP_CONST_HIGH16:
-            HANDLE_OPCODE(OP_CONST_HIGH16 /*vAA, #+BBBB0000*/)
+        case OP_CONST_HIGH16: HANDLE_OPCODE(OP_CONST_HIGH16 /*vAA, #+BBBB0000*/)
             vdst = INST_AA(inst);
             vsrc1 = FETCH(1);
             LOG_D("|const/high16 v%d,#0x%04x0000", vdst, vsrc1);
             SET_REGISTER(vdst, vsrc1 << 16);
             FINISH(2);
-            OP_END
+        OP_END
 
-        case OP_CONST_WIDE_16:
-            HANDLE_OPCODE(OP_CONST_WIDE_16 /*vAA, #+BBBB*/)
+        case OP_CONST_WIDE_16: HANDLE_OPCODE(OP_CONST_WIDE_16 /*vAA, #+BBBB*/)
             vdst = INST_AA(inst);
             vsrc1 = FETCH(1);
             LOG_D("|const-wide/16 v%d,#0x%04x", vdst, (s2) vsrc1);
             SET_REGISTER_WIDE(vdst, (s2) vsrc1);
             FINISH(2);
-            OP_END
+        OP_END
 
-        case OP_CONST_WIDE_32:
-            HANDLE_OPCODE(OP_CONST_WIDE_32 /*vAA, #+BBBBBBBB*/) {
+        case OP_CONST_WIDE_32: HANDLE_OPCODE(OP_CONST_WIDE_32 /*vAA, #+BBBBBBBB*/)
             u4 tmp;
-
             vdst = INST_AA(inst);
             tmp = FETCH(1);
             tmp |= (u4) FETCH(2) << 16;
             LOG_D("|const-wide/32 v%d,#0x%08x", vdst, tmp);
             SET_REGISTER_WIDE(vdst, (s4) tmp);
-        }
             FINISH(3);
-            OP_END
+        OP_END
 
-        case OP_CONST_WIDE:
-            HANDLE_OPCODE(OP_CONST_WIDE /*vAA, #+BBBBBBBB BBBBBBBB*/) {
+        case OP_CONST_WIDE: HANDLE_OPCODE(OP_CONST_WIDE /*vAA, #+BBBBBBBB BBBBBBBB*/)
             u8 tmp;
-
             vdst = INST_AA(inst);
             tmp = FETCH(1);
             tmp |= (u8) FETCH(2) << 16;
             tmp |= (u8) FETCH(3) << 32;
             tmp |= (u8) FETCH(4) << 48;
-            LOG_D("|const-wide v%d,#0x%08llx", vdst, tmp);
+            LOG_D("|const-wide v%d,#0x%016lx", vdst, tmp);
             SET_REGISTER_WIDE(vdst, tmp);
-        }
             FINISH(5);
-            OP_END
+        OP_END
 
-        case OP_CONST_WIDE_HIGH16:
-            HANDLE_OPCODE(OP_CONST_WIDE_HIGH16 /*vAA, #+BBBB000000000000*/)
+        case OP_CONST_WIDE_HIGH16: HANDLE_OPCODE(OP_CONST_WIDE_HIGH16 /*vAA, #+BBBB000000000000*/)
             vdst = INST_AA(inst);
             vsrc1 = FETCH(1);
             LOG_D("|const-wide/high16 v%d,#0x%04x000000000000", vdst, vsrc1);
             SET_REGISTER_WIDE(vdst, ((u8) vsrc1) << 48);
             FINISH(2);
-            OP_END
+        OP_END
 
-        case OP_CONST_STRING:
-            HANDLE_OPCODE(OP_CONST_STRING /*vAA, string@BBBB*/) {
+        case OP_CONST_STRING: HANDLE_OPCODE(OP_CONST_STRING /*vAA, string@BBBB*/)
             jstring strObj = nullptr;
-
             vdst = INST_AA(inst);
             ref = FETCH(1);
             LOG_D("|const-string v%d string@0x%04x", vdst, ref);
             // get string from dex by stringId
             strObj = dvmResolveString(curMethod, ref);
             assert(strObj != nullptr);
-            SET_REGISTER(vdst, (u4) strObj);
-        }
+            SET_REGISTER_AS_OBJECT(vdst, strObj);
             FINISH(2);
-            OP_END
+        OP_END
 
-        case OP_CONST_STRING_JUMBO:
-            HANDLE_OPCODE(OP_CONST_STRING_JUMBO /*vAA, string@BBBBBBBB*/) {
+        case OP_CONST_STRING_JUMBO: HANDLE_OPCODE(OP_CONST_STRING_JUMBO /*vAA, string@BBBBBBBB*/)
             jstring strObj = nullptr;
             u4 tmp;
-
             vdst = INST_AA(inst);
             tmp = FETCH(1);
             tmp |= (u4) FETCH(2) << 16;
@@ -335,15 +292,12 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             // get string from dex by stringId
             strObj = dvmResolveString(curMethod, tmp);
             assert(strObj != nullptr);
-            SET_REGISTER(vdst, (u4) strObj);
-        }
+            SET_REGISTER_AS_OBJECT(vdst, strObj);
             FINISH(3);
-            OP_END
+        OP_END
 
-        case OP_CONST_CLASS:
-            HANDLE_OPCODE(OP_CONST_CLASS /*vAA, class@BBBB*/) {
+        case OP_CONST_CLASS: HANDLE_OPCODE(OP_CONST_CLASS /*vAA, class@BBBB*/)
             jclass clazz = nullptr;
-
             vdst = INST_AA(inst);
             ref = FETCH(1);
             LOG_D("|const-class v%d class@0x%04x", vdst, ref);
@@ -352,37 +306,30 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             if (clazz == nullptr) {
                 GOTO_exceptionThrown();
             }
-            SET_REGISTER(vdst, (u4) clazz);
-        }
+            SET_REGISTER_AS_OBJECT(vdst, clazz);
             FINISH(2);
-            OP_END
+        OP_END
 
             // 0x1d-1e
-        case OP_MONITOR_ENTER:
-            HANDLE_OPCODE(OP_MONITOR_ENTER /*vAA*/) {
+        case OP_MONITOR_ENTER: HANDLE_OPCODE(OP_MONITOR_ENTER /*vAA*/)
             jobject obj;
-
             vsrc1 = INST_AA(inst);
-            LOG_D("|monitor-enter v%d %s(0x%08x)",
-                 vsrc1, kSpacing + 6, GET_REGISTER(vsrc1));
-            obj = (jobject) GET_REGISTER(vsrc1);
+            LOG_D("|monitor-enter v%d %s(%p)",
+                  vsrc1, kSpacing + 6, GET_REGISTER_AS_OBJECT(vsrc1));
+            obj = GET_REGISTER_AS_OBJECT(vsrc1);
             if (!checkForNull(obj)) {
                 GOTO_exceptionThrown();
             }
-//            LOG_D("+ locking %p %s", obj, getClassObjectByJObject(obj)->descriptor);
             (*env).MonitorEnter(obj);
-        }
             FINISH(1);
-            OP_END
+        OP_END
 
-        case OP_MONITOR_EXIT:
-            HANDLE_OPCODE(OP_MONITOR_EXIT /*vAA*/) {
+        case OP_MONITOR_EXIT: HANDLE_OPCODE(OP_MONITOR_EXIT /*vAA*/)
             jobject obj;
-
             vsrc1 = INST_AA(inst);
-            LOG_D("|monitor-exit v%d %s(0x%08x)",
-                 vsrc1, kSpacing + 5, GET_REGISTER(vsrc1));
-            obj = (jobject) GET_REGISTER(vsrc1);
+            LOG_D("|monitor-exit v%d %s(%p)",
+                  vsrc1, kSpacing + 5, GET_REGISTER_AS_OBJECT(vsrc1));
+            obj = GET_REGISTER_AS_OBJECT(vsrc1);
             if (!checkForNull(obj)) {
                 /*
                  * The exception needs to be processed at the *following*
@@ -394,26 +341,21 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
                 ADJUST_PC(1);           /* monitor-exit width is 1 */
                 GOTO_exceptionThrown();
             }
-//            LOG_D("+ unlocking %p %s", obj, getClassObjectByJObject(obj)->descriptor);
             if (!(*env).MonitorExit(obj)) {
                 ADJUST_PC(1);
                 GOTO_exceptionThrown();
             }
-        }
             FINISH(1);
-            OP_END
+        OP_END
 
             // 0x1f-26
-        case OP_CHECK_CAST:
-            HANDLE_OPCODE(OP_CHECK_CAST /*vAA, class@BBBB*/) {
+        case OP_CHECK_CAST: HANDLE_OPCODE(OP_CHECK_CAST /*vAA, class@BBBB*/)
             jclass clazz = nullptr;
             jobject obj;
-
             vsrc1 = INST_AA(inst);
             ref = FETCH(1);         /* class to check against */
             LOG_D("|check-cast v%d,class@0x%04x", vsrc1, ref);
-
-            obj = (jobject) GET_REGISTER(vsrc1);
+            obj = GET_REGISTER_AS_OBJECT(vsrc1);
             if (obj != nullptr) {
                 //  get clazz from dex by clazzId
                 clazz = dvmResolveClass(curMethod, ref);
@@ -426,12 +368,10 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
                     GOTO_exceptionThrown();
                 }
             }
-        }
             FINISH(2);
-            OP_END
+        OP_END
 
-        case OP_INSTANCE_OF:
-            HANDLE_OPCODE(OP_INSTANCE_OF /*vA, vB, class@CCCC*/) {
+        case OP_INSTANCE_OF: HANDLE_OPCODE(OP_INSTANCE_OF /*vA, vB, class@CCCC*/)
             jclass clazz = nullptr;
             jobject obj;
 
@@ -439,8 +379,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             vsrc1 = INST_B(inst);   /* object to check */
             ref = FETCH(1);         /* class to check against */
             LOG_D("|instance-of v%d,v%d,class@0x%04x", vdst, vsrc1, ref);
-
-            obj = (jobject) GET_REGISTER(vsrc1);
+            obj = GET_REGISTER_AS_OBJECT(vsrc1);
             if (obj == nullptr) {
                 SET_REGISTER(vdst, 0);
             } else {
@@ -452,18 +391,14 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             }
             // check type
             SET_REGISTER(vdst, static_cast<u4>((*env).IsInstanceOf(obj, clazz)));
-
-        }
             FINISH(2);
-            OP_END
+        OP_END
 
-        case OP_ARRAY_LENGTH:
-            HANDLE_OPCODE(OP_ARRAY_LENGTH /*vA, vB*/) {
+        case OP_ARRAY_LENGTH: HANDLE_OPCODE(OP_ARRAY_LENGTH /*vA, vB*/)
             jobjectArray arrayObj;
-
             vdst = static_cast<u2>(INST_A(inst));
             vsrc1 = INST_B(inst);
-            arrayObj = (jobjectArray) GET_REGISTER(vsrc1);
+            arrayObj = (jobjectArray) GET_REGISTER_AS_OBJECT(vsrc1);
             LOG_D("|array-length v%d,v%d  (%p)", vdst, vsrc1, arrayObj);
             if (!checkForNull(arrayObj)) {
                 GOTO_exceptionThrown();
@@ -471,12 +406,10 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             /* verifier guarantees this is an array reference */
             u4 arrayLen = static_cast<u4>((*env).GetArrayLength(arrayObj));
             SET_REGISTER(vdst, arrayLen);
-        }
             FINISH(1);
-            OP_END
+        OP_END
 
-        case OP_NEW_INSTANCE:
-            HANDLE_OPCODE(OP_NEW_INSTANCE /*vAA, class@BBBB*/) {
+        case OP_NEW_INSTANCE: HANDLE_OPCODE(OP_NEW_INSTANCE /*vAA, class@BBBB*/)
             jclass clazz = nullptr;
             jobject newObj = nullptr;
 
@@ -492,13 +425,11 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             if (!checkForNull(newObj)) {
                 GOTO_exceptionThrown();
             }
-            SET_REGISTER(vdst, (u4) newObj);
-        }
+            SET_REGISTER_AS_OBJECT(vdst, newObj);
             FINISH(2);
-            OP_END
+        OP_END
 
-        case OP_NEW_ARRAY:
-            HANDLE_OPCODE(OP_NEW_ARRAY /*vA, vB, class@CCCC*/) {
+        case OP_NEW_ARRAY: HANDLE_OPCODE(OP_NEW_ARRAY /*vA, vB, class@CCCC*/)
             jarray newArray;
             s4 length;
 
@@ -506,8 +437,8 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             vsrc1 = INST_B(inst);       /* length reg */
             ref = FETCH(1);
             LOG_D("|new-array v%d,v%d,class@0x%04x  (%d elements)",
-                 vdst, vsrc1, ref, (s4) GET_REGISTER(vsrc1));
-            length = (s4) GET_REGISTER(vsrc1);
+                  vdst, vsrc1, ref, GET_REGISTER(vsrc1));
+            length = GET_REGISTER(vsrc1);
             if (length < 0) {
                 dvmThrowNegativeArraySizeException(length);
                 GOTO_exceptionThrown()
@@ -516,24 +447,21 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             if (newArray == nullptr) {
                 GOTO_exceptionThrown();
             }
-            SET_REGISTER(vdst, (u4) newArray);
-        }
+            SET_REGISTER_AS_OBJECT(vdst, newArray);
             FINISH(2);
-            OP_END
+        OP_END
 
-        case OP_FILLED_NEW_ARRAY:
-            HANDLE_OPCODE(OP_FILLED_NEW_ARRAY /*vB, {vD, vE, vF, vG, vA}, class@CCCC*/)
+        case OP_FILLED_NEW_ARRAY: HANDLE_OPCODE(
+                OP_FILLED_NEW_ARRAY /*vB, {vD, vE, vF, vG, vA}, class@CCCC*/)
             GOTO_invoke(filledNewArray, false);
-            OP_END
+        OP_END
 
-        case OP_FILLED_NEW_ARRAY_RANGE:
-            HANDLE_OPCODE(OP_FILLED_NEW_ARRAY_RANGE /*{vCCCC..v(CCCC+AA-1)}, class@BBBB*/)
+        case OP_FILLED_NEW_ARRAY_RANGE: HANDLE_OPCODE(
+                OP_FILLED_NEW_ARRAY_RANGE /*{vCCCC..v(CCCC+AA-1)}, class@BBBB*/)
             GOTO_invoke(filledNewArray, true);
-            OP_END
+        OP_END
 
-        case OP_FILL_ARRAY_DATA:
-            HANDLE_OPCODE(OP_FILL_ARRAY_DATA)   /*vAA, +BBBBBBBB*/
-        {
+        case OP_FILL_ARRAY_DATA: HANDLE_OPCODE(OP_FILL_ARRAY_DATA)   /*vAA, +BBBBBBBB*/
             const u2 *arrayData;
             s4 offset;
             jarray arrayObj;
@@ -543,22 +471,20 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             LOG_D("|fill-array-data v%d +0x%04x", vsrc1, offset);
             arrayData = pc + offset;       // offset in 16-bit units
 
-            arrayObj = (jarray) GET_REGISTER(vsrc1);
+            arrayObj = (jarray) GET_REGISTER_AS_OBJECT(vsrc1);
             if (!dvmInterpretHandleFillArrayData(arrayObj, arrayData)) {
                 GOTO_exceptionThrown();
             }
             FINISH(3);
-        }
-            OP_END
+        OP_END
 
 
-        case OP_THROW:
-            HANDLE_OPCODE(OP_THROW /*vAA*/) {
+        case OP_THROW: HANDLE_OPCODE(OP_THROW /*vAA*/)
             jthrowable obj;
 
             vsrc1 = INST_AA(inst);
-            LOG_D("|throw v%d  (%p)", vsrc1, (void *) GET_REGISTER(vsrc1));
-            obj = (jthrowable) GET_REGISTER(vsrc1);
+            LOG_D("|throw v%d  (%p)", vsrc1, GET_REGISTER_AS_OBJECT(vsrc1));
+            obj = (jthrowable) GET_REGISTER_AS_OBJECT(vsrc1);
             if (!checkForNull(obj)) {
                 /* will throw a null pointer exception */
                 LOG_E("Bad exception");
@@ -568,12 +494,10 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
                 (*env).Throw(obj);
                 GOTO_exceptionThrown();
             }
-        }
-            OP_END
+        OP_END
 
             // 0x28-0x3d
-        case OP_GOTO:
-            HANDLE_OPCODE(OP_GOTO /*+AA*/)
+        case OP_GOTO: HANDLE_OPCODE(OP_GOTO /*+AA*/)
             vdst = INST_AA(inst);
             if ((s1) vdst < 0) {
                 LOG_D("|goto -0x%02x", -((s1) vdst));
@@ -581,45 +505,36 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
                 LOG_D("|goto +0x%02x", ((s1) vdst));
                 LOG_D("> branch taken");
             }
-
             if ((s1) vdst < 0) {PERIODIC_CHECKS((s1) vdst); }
             FINISH((s1) vdst);
-            OP_END
+        OP_END
 
-        case OP_GOTO_16:
-            HANDLE_OPCODE(OP_GOTO_16 /*+AAAA*/) {
+        case OP_GOTO_16: HANDLE_OPCODE(OP_GOTO_16 /*+AAAA*/)
             s4 offset = (s2) FETCH(1);          /* sign-extend next code unit */
-
-            if (offset < 0)
+            if (offset < 0) {
                 LOG_D("|goto/16 -0x%04x", -offset);
-            else
+            } else {
                 LOG_D("|goto/16 +0x%04x", offset);
+            }
             LOG_D("> branch taken");
-
-            if (offset < 0) PERIODIC_CHECKS(offset);
+            if (offset < 0) {PERIODIC_CHECKS(offset); };
             FINISH(offset);
-        }
-            OP_END
+        OP_END
 
-        case OP_GOTO_32:
-            HANDLE_OPCODE(OP_GOTO_32 /*+AAAAAAAA*/) {
+        case OP_GOTO_32: HANDLE_OPCODE(OP_GOTO_32 /*+AAAAAAAA*/)
             s4 offset = FETCH(1);               /* low-order 16 bits */
             offset |= ((s4) FETCH(2)) << 16;    /* high-order 16 bits */
 
-            if (offset < 0)
-                LOG_D("|goto/32 -0x%08x", -offset);
-            else
-                LOG_D("|goto/32 +0x%08x", offset);
+            if (offset < 0) { LOG_D("|goto/32 -0x%08x", -offset); }
+            else { LOG_D("|goto/32 +0x%08x", offset); }
             LOG_D("> branch taken");
 
             /* allowed to branch to self */
-            if (offset <= 0) PERIODIC_CHECKS(offset);
+            if (offset <= 0) {PERIODIC_CHECKS(offset); }
             FINISH(offset);
-        }
-            OP_END
+        OP_END
 
-        case OP_PACKED_SWITCH:
-            HANDLE_OPCODE(OP_PACKED_SWITCH /*vAA, +BBBB*/) {
+        case OP_PACKED_SWITCH: HANDLE_OPCODE(OP_PACKED_SWITCH /*vAA, +BBBB*/)
             const u2 *switchData;
             u4 testVal;
             s4 offset;
@@ -628,20 +543,15 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             offset = FETCH(1) | (((s4) FETCH(2)) << 16);
             LOG_D("|packed-switch v%d +0x%04x", vsrc1, offset);
             switchData = pc + offset;       // offset in 16-bit units
-
-            testVal = GET_REGISTER(vsrc1);
-
+            testVal = (u4) GET_REGISTER(vsrc1);
             offset = dvmInterpretHandlePackedSwitch(switchData, testVal);
             LOG_D("> branch taken (0x%04x)", offset);
 
-            /* uncommon */
-            if (offset <= 0) PERIODIC_CHECKS(offset);
+            if (offset <= 0) {PERIODIC_CHECKS(offset); }
             FINISH(offset);
-        }
-            OP_END
+        OP_END
 
-        case OP_SPARSE_SWITCH:
-            HANDLE_OPCODE(OP_SPARSE_SWITCH /*vAA, +BBBB*/) {
+        case OP_SPARSE_SWITCH: HANDLE_OPCODE(OP_SPARSE_SWITCH /*vAA, +BBBB*/)
             const u2 *switchData;
             u4 testVal;
             s4 offset;
@@ -650,90 +560,73 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             offset = FETCH(1) | (((s4) FETCH(2)) << 16);
             LOG_D("|sparse-switch v%d +0x%04x", vsrc1, offset);
             switchData = pc + offset;       // offset in 16-bit units
-
-            testVal = GET_REGISTER(vsrc1);
-
+            testVal = (u4) GET_REGISTER(vsrc1);
             offset = dvmInterpretHandleSparseSwitch(switchData, testVal);
             LOG_D("> branch taken (0x%04x)", offset);
-
             /* uncommon */
-            if (offset <= 0) PERIODIC_CHECKS(offset);
+            if (offset <= 0) {PERIODIC_CHECKS(offset); }
             FINISH(offset);
-        }
-            OP_END
+        OP_END
 
         case OP_CMPL_FLOAT: HANDLE_OP_CMPX(OP_CMPL_FLOAT, "l-float", jfloat, _FLOAT, -1)
-            OP_END
+        OP_END
 
         case OP_CMPG_FLOAT: HANDLE_OP_CMPX(OP_CMPG_FLOAT, "g-float", jfloat, _FLOAT, 1)
-            OP_END
+        OP_END
 
         case OP_CMPL_DOUBLE: HANDLE_OP_CMPX(OP_CMPL_DOUBLE, "l-double", jdouble, _DOUBLE, -1)
-            OP_END
+        OP_END
 
         case OP_CMPG_DOUBLE: HANDLE_OP_CMPX(OP_CMPG_DOUBLE, "g-double", jdouble, _DOUBLE, 1)
-            OP_END
+        OP_END
 
         case OP_CMP_LONG: HANDLE_OP_CMPX(OP_CMP_LONG, "-long", s8, _WIDE, 0)
-            OP_END
+        OP_END
 
-        case OP_IF_EQ:
-        HANDLE_OP_IF_XX(OP_IF_EQ, "eq", ==)
-            OP_END
+        case OP_IF_EQ: HANDLE_OP_IF_XX(OP_IF_EQ, "eq", ==)
+        OP_END
 
-        case OP_IF_NE:
-        HANDLE_OP_IF_XX(OP_IF_NE, "ne", !=)
-            OP_END
+        case OP_IF_NE: HANDLE_OP_IF_XX(OP_IF_NE, "ne", !=)
+        OP_END
 
-        case OP_IF_LT:
-        HANDLE_OP_IF_XX(OP_IF_LT, "lt", <)
-            OP_END
+        case OP_IF_LT: HANDLE_OP_IF_XX(OP_IF_LT, "lt", <)
+        OP_END
 
-        case OP_IF_GE:
-        HANDLE_OP_IF_XX(OP_IF_GE, "ge", >=)
-            OP_END
+        case OP_IF_GE: HANDLE_OP_IF_XX(OP_IF_GE, "ge", >=)
+        OP_END
 
-        case OP_IF_GT:
-        HANDLE_OP_IF_XX(OP_IF_GT, "gt", >)
-            OP_END
+        case OP_IF_GT: HANDLE_OP_IF_XX(OP_IF_GT, "gt", >)
+        OP_END
 
-        case OP_IF_LE:
-        HANDLE_OP_IF_XX(OP_IF_LE, "le", <=)
-            OP_END
+        case OP_IF_LE: HANDLE_OP_IF_XX(OP_IF_LE, "le", <=)
+        OP_END
 
-        case OP_IF_EQZ:
-        HANDLE_OP_IF_XXZ(OP_IF_EQZ, "eqz", ==)
-            OP_END
+        case OP_IF_EQZ: HANDLE_OP_IF_XXZ(OP_IF_EQZ, "eqz", ==)
+        OP_END
 
-        case OP_IF_NEZ:
-        HANDLE_OP_IF_XXZ(OP_IF_NEZ, "nez", !=)
-            OP_END
+        case OP_IF_NEZ: HANDLE_OP_IF_XXZ(OP_IF_NEZ, "nez", !=)
+        OP_END
 
-        case OP_IF_LTZ:
-        HANDLE_OP_IF_XXZ(OP_IF_LTZ, "ltz", <)
-            OP_END
+        case OP_IF_LTZ: HANDLE_OP_IF_XXZ(OP_IF_LTZ, "ltz", <)
+        OP_END
 
-        case OP_IF_GEZ:
-        HANDLE_OP_IF_XXZ(OP_IF_GEZ, "gez", >=)
-            OP_END
+        case OP_IF_GEZ: HANDLE_OP_IF_XXZ(OP_IF_GEZ, "gez", >=)
+        OP_END
 
-        case OP_IF_GTZ:
-        HANDLE_OP_IF_XXZ(OP_IF_GTZ, "gtz", >)
-            OP_END
+        case OP_IF_GTZ: HANDLE_OP_IF_XXZ(OP_IF_GTZ, "gtz", >)
+        OP_END
 
-        case OP_IF_LEZ:
-        HANDLE_OP_IF_XXZ(OP_IF_LEZ, "lez", <=)
-            OP_END
+        case OP_IF_LEZ: HANDLE_OP_IF_XXZ(OP_IF_LEZ, "lez", <=)
+        OP_END
 
             // 0x44-0x6d
         case OP_AGET: HANDLE_OP_AGET(OP_AGET, "-normal", Int, jint,)
-            OP_END
+        OP_END
 
         case OP_AGET_WIDE: HANDLE_OP_AGET(OP_AGET_WIDE, "-wide", Long, jlong, _WIDE)
-            OP_END
+        OP_END
 
-        case OP_AGET_OBJECT:
-            HANDLE_OPCODE(OP_AGET_OBJECT /*vAA, vBB, vCC*/) {
+        case OP_AGET_OBJECT: HANDLE_OPCODE(OP_AGET_OBJECT /*vAA, vBB, vCC*/)
             jobjectArray arrayObj;
             u2 arrayInfo;
             vdst = INST_AA(inst);
@@ -741,41 +634,38 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             vsrc1 = static_cast<u2>(arrayInfo & 0xff);    /* array ptr */
             vsrc2 = arrayInfo >> 8;      /* index */
             LOG_D("|aget%s v%d,v%d,v%d", "-object", vdst, vsrc1, vsrc2);
-            arrayObj = (jobjectArray) GET_REGISTER(vsrc1);
-            if (!checkForNull(arrayObj)) {
-                GOTO_exceptionThrown();
-            }
+            arrayObj = (jobjectArray) GET_REGISTER_AS_OBJECT(vsrc1);
+            if (!checkForNull(arrayObj)) GOTO_exceptionThrown();
             if (GET_REGISTER(vsrc2) >= (*env).GetArrayLength(arrayObj)) {
-                dvmThrowArrayIndexOutOfBoundsException(
-                        (*env).GetArrayLength(arrayObj), GET_REGISTER(vsrc2));
+                dvmThrowArrayIndexOutOfBoundsException((*env).GetArrayLength(arrayObj),
+                                                       GET_REGISTER(vsrc2));
                 GOTO_exceptionThrown();
             }
-            SET_REGISTER(vdst, (u4) (*env).GetObjectArrayElement(arrayObj, GET_REGISTER(vsrc2)));
+            SET_REGISTER_AS_OBJECT(vdst,
+                                   (*env).GetObjectArrayElement(arrayObj, GET_REGISTER(vsrc2)));
             LOG_D("+ AGET[%d]=%#x", GET_REGISTER(vsrc2), GET_REGISTER(vdst));
-        }
             FINISH(2);
-            OP_END
+        OP_END
 
         case OP_AGET_BOOLEAN: HANDLE_OP_AGET(OP_AGET_BOOLEAN, "-boolean", Boolean, jboolean,)
-            OP_END
+        OP_END
 
         case OP_AGET_BYTE: HANDLE_OP_AGET(OP_AGET_BYTE, "-byte", Byte, jbyte,)
-            OP_END
+        OP_END
 
         case OP_AGET_CHAR: HANDLE_OP_AGET(OP_AGET_CHAR, "-char", Char, jchar,)
-            OP_END
+        OP_END
 
         case OP_AGET_SHORT: HANDLE_OP_AGET(OP_AGET_SHORT, "-short", Short, jshort,)
-            OP_END
+        OP_END
 
         case OP_APUT: HANDLE_OP_APUT(OP_APUT, "-normal", Int, jint,)
-            OP_END
+        OP_END
 
         case OP_APUT_WIDE: HANDLE_OP_APUT(OP_APUT_WIDE, "-wide", Long, jlong, _WIDE)
-            OP_END
+        OP_END
 
-        case OP_APUT_OBJECT:
-            HANDLE_OPCODE(OP_APUT_OBJECT /*vAA, vBB, vCC*/) {
+        case OP_APUT_OBJECT: HANDLE_OPCODE(OP_APUT_OBJECT /*vAA, vBB, vCC*/)
             jobjectArray arrayObj;
             jobject obj;
             u2 arrayInfo;
@@ -784,367 +674,330 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             vsrc1 = static_cast<u2>(arrayInfo & 0xff);   /* BB: array ptr */
             vsrc2 = arrayInfo >> 8;     /* CC: index */
             LOG_D("|aput%s v%d,v%d,v%d", "-object", vdst, vsrc1, vsrc2);
-            arrayObj = (jobjectArray) GET_REGISTER(vsrc1);
-            if (!checkForNull((jobject) arrayObj)) {
-                GOTO_exceptionThrown();
-            }
+            arrayObj = (jobjectArray) GET_REGISTER_AS_OBJECT(vsrc1);
+            if (!checkForNull((jobject) arrayObj)) GOTO_exceptionThrown();
             if (GET_REGISTER(vsrc2) >= (*env).GetArrayLength(arrayObj)) {
-                dvmThrowArrayIndexOutOfBoundsException(
-                        (*env).GetArrayLength(arrayObj), GET_REGISTER(vsrc2));
+                dvmThrowArrayIndexOutOfBoundsException((*env).GetArrayLength(arrayObj),
+                                                       GET_REGISTER(vsrc2));
                 GOTO_exceptionThrown();
             }
-            obj = (jobject) GET_REGISTER(vdst);
-
+            obj = (jobject) GET_REGISTER_AS_OBJECT(vdst);
             if (!checkForNull(obj)) {
                 GOTO_exceptionThrown();
             }
             if (!dvmCanPutArrayElement(obj, arrayObj)) {
-//                LOG_E("Can't put a '%s'(%p) into array type='%s'(%p)",
-//                     getClassObjectByJObject(obj)->descriptor, obj,
-//                     getClassObjectByJObject(arrayObj)->descriptor, arrayObj);
                 dvmThrowArrayStoreExceptionIncompatibleElement(obj, arrayObj);
                 GOTO_exceptionThrown();
             }
-
             LOG_D("+ APUT[%d]=0x%08x", GET_REGISTER(vsrc2), GET_REGISTER(vdst));
             (*env).SetObjectArrayElement(arrayObj, GET_REGISTER(vsrc2), obj);
-        }
             FINISH(2);
-            OP_END
+        OP_END
 
         case OP_APUT_BOOLEAN: HANDLE_OP_APUT(OP_APUT_BOOLEAN, "-boolean", Boolean, jboolean,)
-            OP_END
+        OP_END
 
         case OP_APUT_BYTE: HANDLE_OP_APUT(OP_APUT_BYTE, "-byte", Byte, jbyte,)
-            OP_END
+        OP_END
 
         case OP_APUT_CHAR: HANDLE_OP_APUT(OP_APUT_CHAR, "-char", Char, jchar,)
-            OP_END
+        OP_END
 
         case OP_APUT_SHORT: HANDLE_OP_APUT(OP_APUT_SHORT, "-short", Short, jshort,)
-            OP_END
+        OP_END
 
         case OP_IGET: HANDLE_IGET_X(OP_IGET, "-normal", s4,)
-            OP_END
+        OP_END
 
         case OP_IGET_WIDE: HANDLE_IGET_X(OP_IGET_WIDE, "-wide", s8, _WIDE)
-            OP_END
+        OP_END
 
-        case OP_IGET_OBJECT: HANDLE_IGET_X(OP_IGET_OBJECT, "-object", s4, _AS_OBJECT)
-            OP_END
+        case OP_IGET_OBJECT: HANDLE_IGET_X(OP_IGET_OBJECT, "-object", s8, _AS_OBJECT)
+        OP_END
 
         case OP_IGET_BOOLEAN: HANDLE_IGET_X(OP_IGET_BOOLEAN, "-boolean", s4,)
-            OP_END
+        OP_END
 
         case OP_IGET_BYTE: HANDLE_IGET_X(OP_IGET_BYTE, "-byte", s4,)
-            OP_END
+        OP_END
 
         case OP_IGET_CHAR: HANDLE_IGET_X(OP_IGET_CHAR, "-char", s4,)
-            OP_END
+        OP_END
 
         case OP_IGET_SHORT: HANDLE_IGET_X(OP_IGET_SHORT, "-short", s4,)
-            OP_END
+        OP_END
 
         case OP_IPUT: HANDLE_IPUT_X(OP_IPUT, "-normal",)
-            OP_END
+        OP_END
 
         case OP_IPUT_WIDE: HANDLE_IPUT_X(OP_IPUT_WIDE, "-wide", _WIDE)
-            OP_END
+        OP_END
 
-
-            /*
-             * The VM spec says we should verify that the reference being stored into
-             * the field is assignment compatible.  In practice, many popular VMs don't
-             * do this because it slows down a very common operation.  It's not so bad
-             * for us, since "dexopt" quickens it whenever possible, but it's still an
-             * issue.
-             *
-             * To make this spec-complaint, we'd need to add a ClassObject pointer to
-             * the Field struct, resolve the field's type descriptor at link or class
-             * init time, and then verify the type here.
-             */
         case OP_IPUT_OBJECT: HANDLE_IPUT_X(OP_IPUT_OBJECT, "-object", _AS_OBJECT)
-            OP_END
+        OP_END
 
         case OP_IPUT_BOOLEAN: HANDLE_IPUT_X(OP_IPUT_BOOLEAN, "-boolean",)
-            OP_END
+        OP_END
 
         case OP_IPUT_BYTE: HANDLE_IPUT_X(OP_IPUT_BYTE, "-byte",)
-            OP_END
+        OP_END
 
         case OP_IPUT_CHAR: HANDLE_IPUT_X(OP_IPUT_CHAR, "-char",)
-            OP_END
+        OP_END
 
         case OP_IPUT_SHORT: HANDLE_IPUT_X(OP_IPUT_SHORT, "-short",)
-            OP_END
+        OP_END
 
         case OP_SGET: HANDLE_SGET_X(OP_SGET, "-normal", s4,)
-            OP_END
+        OP_END
 
         case OP_SGET_WIDE: HANDLE_SGET_X(OP_SGET_WIDE, "-wide", s8, _WIDE)
-            OP_END
+        OP_END
 
-        case OP_SGET_OBJECT: HANDLE_SGET_X(OP_SGET_OBJECT, "-object", s4, _AS_OBJECT)
-            OP_END
+        case OP_SGET_OBJECT: HANDLE_SGET_X(OP_SGET_OBJECT, "-object", s8, _AS_OBJECT)
+        OP_END
 
         case OP_SGET_BOOLEAN: HANDLE_SGET_X(OP_SGET_BOOLEAN, "-boolean", s4,)
-            OP_END
+        OP_END
 
         case OP_SGET_BYTE: HANDLE_SGET_X(OP_SGET_BYTE, "-byte", s4,)
-            OP_END
+        OP_END
 
         case OP_SGET_CHAR: HANDLE_SGET_X(OP_SGET_CHAR, "-char", s4,)
-            OP_END
+        OP_END
 
         case OP_SGET_SHORT: HANDLE_SGET_X(OP_SGET_SHORT, "-short", s4,)
-            OP_END
+        OP_END
 
         case OP_SPUT: HANDLE_SPUT_X(OP_SPUT, "-normal",)
-            OP_END
+        OP_END
 
         case OP_SPUT_WIDE: HANDLE_SPUT_X(OP_SPUT_WIDE, "-wide", _WIDE)
-            OP_END
+        OP_END
 
         case OP_SPUT_OBJECT: HANDLE_SPUT_X(OP_SPUT_OBJECT, "-object", _AS_OBJECT)
-            OP_END
+        OP_END
 
         case OP_SPUT_BOOLEAN: HANDLE_SPUT_X(OP_SPUT_BOOLEAN, "-boolean",)
-            OP_END
+        OP_END
 
         case OP_SPUT_BYTE: HANDLE_SPUT_X(OP_SPUT_BYTE, "-byte",)
-            OP_END
+        OP_END
 
         case OP_SPUT_CHAR: HANDLE_SPUT_X(OP_SPUT_CHAR, "-char",)
-            OP_END
+        OP_END
 
         case OP_SPUT_SHORT: HANDLE_SPUT_X(OP_SPUT_SHORT, "-short",)
-            OP_END
+        OP_END
 
             // 0x6e-0x78
-        case OP_INVOKE_VIRTUAL:
-            HANDLE_OPCODE(OP_INVOKE_VIRTUAL /*vB, {vD, vE, vF, vG, vA}, meth@CCCC*/)
+        case OP_INVOKE_VIRTUAL: HANDLE_OPCODE(
+                OP_INVOKE_VIRTUAL /*vB, {vD, vE, vF, vG, vA}, meth@CCCC*/)
             GOTO_invoke(invokeVirtual, false);
-            OP_END
+        OP_END
 
-        case OP_INVOKE_SUPER:
-            HANDLE_OPCODE(OP_INVOKE_SUPER /*vB, {vD, vE, vF, vG, vA}, meth@CCCC*/)
+        case OP_INVOKE_SUPER: HANDLE_OPCODE(OP_INVOKE_SUPER /*vB, {vD, vE, vF, vG, vA}, meth@CCCC*/)
             GOTO_invoke(invokeSuper, false);
-            OP_END
+        OP_END
 
-        case OP_INVOKE_DIRECT:
-            HANDLE_OPCODE(OP_INVOKE_DIRECT /*vB, {vD, vE, vF, vG, vA}, meth@CCCC*/)
+        case OP_INVOKE_DIRECT: HANDLE_OPCODE(
+                OP_INVOKE_DIRECT /*vB, {vD, vE, vF, vG, vA}, meth@CCCC*/)
             GOTO_invoke(invokeDirect, false);
-            OP_END
+        OP_END
 
-        case OP_INVOKE_STATIC:
-            HANDLE_OPCODE(OP_INVOKE_STATIC /*vB, {vD, vE, vF, vG, vA}, meth@CCCC*/)
+        case OP_INVOKE_STATIC: HANDLE_OPCODE(
+                OP_INVOKE_STATIC /*vB, {vD, vE, vF, vG, vA}, meth@CCCC*/)
             GOTO_invoke(invokeStatic, false);
-            OP_END
+        OP_END
 
-        case OP_INVOKE_INTERFACE:
-            HANDLE_OPCODE(OP_INVOKE_INTERFACE /*vB, {vD, vE, vF, vG, vA}, meth@CCCC*/)
+        case OP_INVOKE_INTERFACE: HANDLE_OPCODE(
+                OP_INVOKE_INTERFACE /*vB, {vD, vE, vF, vG, vA}, meth@CCCC*/)
             GOTO_invoke(invokeInterface, false);
-            OP_END
+        OP_END
 
 
-        case OP_INVOKE_VIRTUAL_RANGE:
-            HANDLE_OPCODE(OP_INVOKE_VIRTUAL_RANGE /*{vCCCC..v(CCCC+AA-1)}, meth@BBBB*/)
+        case OP_INVOKE_VIRTUAL_RANGE: HANDLE_OPCODE(
+                OP_INVOKE_VIRTUAL_RANGE /*{vCCCC..v(CCCC+AA-1)}, meth@BBBB*/)
             GOTO_invoke(invokeVirtual, true);
-            OP_END
+        OP_END
 
-        case OP_INVOKE_SUPER_RANGE:
-            HANDLE_OPCODE(OP_INVOKE_SUPER_RANGE /*{vCCCC..v(CCCC+AA-1)}, meth@BBBB*/)
+        case OP_INVOKE_SUPER_RANGE: HANDLE_OPCODE(
+                OP_INVOKE_SUPER_RANGE /*{vCCCC..v(CCCC+AA-1)}, meth@BBBB*/)
             GOTO_invoke(invokeSuper, true);
-            OP_END
+        OP_END
 
-        case OP_INVOKE_DIRECT_RANGE:
-            HANDLE_OPCODE(OP_INVOKE_DIRECT_RANGE /*{vCCCC..v(CCCC+AA-1)}, meth@BBBB*/)
+        case OP_INVOKE_DIRECT_RANGE: HANDLE_OPCODE(
+                OP_INVOKE_DIRECT_RANGE /*{vCCCC..v(CCCC+AA-1)}, meth@BBBB*/)
             GOTO_invoke(invokeDirect, true);
-            OP_END
+        OP_END
 
-        case OP_INVOKE_STATIC_RANGE:
-            HANDLE_OPCODE(OP_INVOKE_STATIC_RANGE /*{vCCCC..v(CCCC+AA-1)}, meth@BBBB*/)
+        case OP_INVOKE_STATIC_RANGE: HANDLE_OPCODE(
+                OP_INVOKE_STATIC_RANGE /*{vCCCC..v(CCCC+AA-1)}, meth@BBBB*/)
             GOTO_invoke(invokeStatic, true);
-            OP_END
+        OP_END
 
-        case OP_INVOKE_INTERFACE_RANGE:
-            HANDLE_OPCODE(OP_INVOKE_INTERFACE_RANGE /*{vCCCC..v(CCCC+AA-1)}, meth@BBBB*/)
+        case OP_INVOKE_INTERFACE_RANGE: HANDLE_OPCODE(
+                OP_INVOKE_INTERFACE_RANGE /*{vCCCC..v(CCCC+AA-1)}, meth@BBBB*/)
             GOTO_invoke(invokeInterface, true);
-            OP_END
+        OP_END
 
             // 0x7b-0x80
-        case OP_NEG_INT:
-        HANDLE_UNOP(OP_NEG_INT, "neg-int", -, ,)
-            OP_END
+        case OP_NEG_INT: HANDLE_UNOP(OP_NEG_INT, "neg-int", -, ,)
+        OP_END
 
-        case OP_NOT_INT:
-        HANDLE_UNOP(OP_NOT_INT, "not-int", , ^
+        case OP_NOT_INT: HANDLE_UNOP(OP_NOT_INT, "not-int", , ^
                 0xffffffff,)
-            OP_END
+        OP_END
 
-        case OP_NEG_LONG:
-        HANDLE_UNOP(OP_NEG_LONG, "neg-long", -, , _WIDE)
-            OP_END
+        case OP_NEG_LONG: HANDLE_UNOP(OP_NEG_LONG, "neg-long", -, , _WIDE)
+        OP_END
 
-        case OP_NOT_LONG:
-        HANDLE_UNOP(OP_NOT_LONG, "not-long", , ^
+        case OP_NOT_LONG: HANDLE_UNOP(OP_NOT_LONG, "not-long", , ^
                 0xffffffffffffffffULL, _WIDE)
-            OP_END
+        OP_END
 
-        case OP_NEG_FLOAT:
-        HANDLE_UNOP(OP_NEG_FLOAT, "neg-float", -, , _FLOAT)
-            OP_END
+        case OP_NEG_FLOAT: HANDLE_UNOP(OP_NEG_FLOAT, "neg-float", -, , _FLOAT)
+        OP_END
 
-        case OP_NEG_DOUBLE:
-        HANDLE_UNOP(OP_NEG_DOUBLE, "neg-double", -, , _DOUBLE)
-            OP_END
+        case OP_NEG_DOUBLE: HANDLE_UNOP(OP_NEG_DOUBLE, "neg-double", -, , _DOUBLE)
+        OP_END
 
             // 0x84-0x8f
-        case OP_INT_TO_LONG:
-        HANDLE_NUMCONV(OP_INT_TO_LONG, "int-to-long", _INT, _WIDE)
-            OP_END
+        case OP_INT_TO_LONG: HANDLE_NUMCONV(OP_INT_TO_LONG, "int-to-long", _INT, _WIDE)
+        OP_END
 
-        case OP_INT_TO_FLOAT:
-        HANDLE_NUMCONV(OP_INT_TO_FLOAT, "int-to-float", _INT, _FLOAT)
-            OP_END
+        case OP_INT_TO_FLOAT: HANDLE_NUMCONV(OP_INT_TO_FLOAT, "int-to-float", _INT, _FLOAT)
+        OP_END
 
-        case OP_INT_TO_DOUBLE:
-        HANDLE_NUMCONV(OP_INT_TO_DOUBLE, "int-to-double", _INT, _DOUBLE)
-            OP_END
+        case OP_INT_TO_DOUBLE: HANDLE_NUMCONV(OP_INT_TO_DOUBLE, "int-to-double", _INT, _DOUBLE)
+        OP_END
 
-        case OP_LONG_TO_INT:
-        HANDLE_NUMCONV(OP_LONG_TO_INT, "long-to-int", _WIDE, _INT)
-            OP_END
+        case OP_LONG_TO_INT: HANDLE_NUMCONV(OP_LONG_TO_INT, "long-to-int", _WIDE, _INT)
+        OP_END
 
-        case OP_LONG_TO_FLOAT:
-        HANDLE_NUMCONV(OP_LONG_TO_FLOAT, "long-to-float", _WIDE, _FLOAT)
-            OP_END
+        case OP_LONG_TO_FLOAT: HANDLE_NUMCONV(OP_LONG_TO_FLOAT, "long-to-float", _WIDE, _FLOAT)
+        OP_END
 
-        case OP_LONG_TO_DOUBLE:
-        HANDLE_NUMCONV(OP_LONG_TO_DOUBLE, "long-to-double", _WIDE, _DOUBLE)
-            OP_END
+        case OP_LONG_TO_DOUBLE: HANDLE_NUMCONV(OP_LONG_TO_DOUBLE, "long-to-double", _WIDE, _DOUBLE)
+        OP_END
 
         case OP_FLOAT_TO_INT: HANDLE_FLOAT_TO_INT(OP_FLOAT_TO_INT, "float-to-int",
                                                   float, _FLOAT, s4, _INT)
-            OP_END
+        OP_END
 
         case OP_FLOAT_TO_LONG: HANDLE_FLOAT_TO_INT(OP_FLOAT_TO_LONG, "float-to-long",
                                                    float, _FLOAT, s8, _WIDE)
-            OP_END
+        OP_END
 
-        case OP_FLOAT_TO_DOUBLE:
-        HANDLE_NUMCONV(OP_FLOAT_TO_DOUBLE, "float-to-double", _FLOAT, _DOUBLE)
-            OP_END
+        case OP_FLOAT_TO_DOUBLE: HANDLE_NUMCONV(OP_FLOAT_TO_DOUBLE, "float-to-double", _FLOAT,
+                                                _DOUBLE)
+        OP_END
 
         case OP_DOUBLE_TO_INT: HANDLE_FLOAT_TO_INT(OP_DOUBLE_TO_INT, "double-to-int",
                                                    double, _DOUBLE, s4, _INT)
-            OP_END
+        OP_END
 
         case OP_DOUBLE_TO_LONG: HANDLE_FLOAT_TO_INT(OP_DOUBLE_TO_LONG, "double-to-long",
                                                     double, _DOUBLE, s8, _WIDE)
-            OP_END
+        OP_END
 
-        case OP_DOUBLE_TO_FLOAT:
-        HANDLE_NUMCONV(OP_DOUBLE_TO_FLOAT, "double-to-float", _DOUBLE, _FLOAT)
-            OP_END
+        case OP_DOUBLE_TO_FLOAT: HANDLE_NUMCONV(OP_DOUBLE_TO_FLOAT, "double-to-float",
+                                                _DOUBLE, _FLOAT)
+        OP_END
 
-        case OP_INT_TO_BYTE:
-        HANDLE_INT_TO_SMALL(OP_INT_TO_BYTE, "byte", s1)
-            OP_END
+        case OP_INT_TO_BYTE: HANDLE_INT_TO_SMALL(OP_INT_TO_BYTE, "byte", s1)
+        OP_END
 
-        case OP_INT_TO_CHAR:
-        HANDLE_INT_TO_SMALL(OP_INT_TO_CHAR, "char", u2)
-            OP_END
+        case OP_INT_TO_CHAR: HANDLE_INT_TO_SMALL(OP_INT_TO_CHAR, "char", u2)
+        OP_END
 
-        case OP_INT_TO_SHORT:
-        HANDLE_INT_TO_SMALL(OP_INT_TO_SHORT, "short", s2)    /* want sign bit */
-            OP_END
+        case OP_INT_TO_SHORT: HANDLE_INT_TO_SMALL(OP_INT_TO_SHORT, "short", s2)
+        OP_END
 
             //  0x90-0x97
         case OP_ADD_INT: HANDLE_OP_X_INT(OP_ADD_INT, "add", +, 0)
-            OP_END
+        OP_END
 
         case OP_SUB_INT: HANDLE_OP_X_INT(OP_SUB_INT, "sub", -, 0)
-            OP_END
+        OP_END
 
         case OP_MUL_INT: HANDLE_OP_X_INT(OP_MUL_INT, "mul", *, 0)
-            OP_END
+        OP_END
 
         case OP_DIV_INT: HANDLE_OP_X_INT(OP_DIV_INT, "div", /, 1)
-            OP_END
+        OP_END
 
         case OP_REM_INT: HANDLE_OP_X_INT(OP_REM_INT, "rem", %, 2)
-            OP_END
+        OP_END
 
         case OP_AND_INT: HANDLE_OP_X_INT(OP_AND_INT, "and", &, 0)
-            OP_END
+        OP_END
 
         case OP_OR_INT: HANDLE_OP_X_INT(OP_OR_INT, "or", |, 0)
-            OP_END
+        OP_END
 
         case OP_XOR_INT: HANDLE_OP_X_INT(OP_XOR_INT, "xor", ^, 0)
-            OP_END
+        OP_END
 
             // 0x98-0x9a
         case OP_SHL_INT: HANDLE_OP_SHX_INT(OP_SHL_INT, "shl", (s4), <<)
-            OP_END
+        OP_END
 
         case OP_SHR_INT: HANDLE_OP_SHX_INT(OP_SHR_INT, "shr", (s4), >>)
-            OP_END
+        OP_END
 
         case OP_USHR_INT: HANDLE_OP_SHX_INT(OP_USHR_INT, "ushr", (u4), >>)
-            OP_END
+        OP_END
 
             // 0x9b-0xa2
         case OP_ADD_LONG: HANDLE_OP_X_LONG(OP_ADD_LONG, "add", +, 0)
-            OP_END
+        OP_END
 
         case OP_SUB_LONG: HANDLE_OP_X_LONG(OP_SUB_LONG, "sub", -, 0)
-            OP_END
+        OP_END
 
         case OP_MUL_LONG: HANDLE_OP_X_LONG(OP_MUL_LONG, "mul", *, 0)
-            OP_END
+        OP_END
 
         case OP_DIV_LONG: HANDLE_OP_X_LONG(OP_DIV_LONG, "div", /, 1)
-            OP_END
+        OP_END
 
         case OP_REM_LONG: HANDLE_OP_X_LONG(OP_REM_LONG, "rem", %, 2)
-            OP_END
+        OP_END
 
         case OP_AND_LONG: HANDLE_OP_X_LONG(OP_AND_LONG, "and", &, 0)
-            OP_END
+        OP_END
 
         case OP_OR_LONG: HANDLE_OP_X_LONG(OP_OR_LONG, "or", |, 0)
-            OP_END
+        OP_END
 
         case OP_XOR_LONG: HANDLE_OP_X_LONG(OP_XOR_LONG, "xor", ^, 0)
-            OP_END
+        OP_END
 
             // 0xa3-0xa5
         case OP_SHL_LONG: HANDLE_OP_SHX_LONG(OP_SHL_LONG, "shl", (s8), <<)
-            OP_END
+        OP_END
 
         case OP_SHR_LONG: HANDLE_OP_SHX_LONG(OP_SHR_LONG, "shr", (s8), >>)
-            OP_END
+        OP_END
 
         case OP_USHR_LONG: HANDLE_OP_SHX_LONG(OP_USHR_LONG, "ushr", (u8), >>)
-            OP_END
+        OP_END
 
             // 0xa6-0xaa
         case OP_ADD_FLOAT: HANDLE_OP_X_FLOAT(OP_ADD_FLOAT, "add", +)
-            OP_END
+        OP_END
 
         case OP_SUB_FLOAT: HANDLE_OP_X_FLOAT(OP_SUB_FLOAT, "sub", -)
-            OP_END
+        OP_END
 
         case OP_MUL_FLOAT: HANDLE_OP_X_FLOAT(OP_MUL_FLOAT, "mul", *)
-            OP_END
+        OP_END
 
         case OP_DIV_FLOAT: HANDLE_OP_X_FLOAT(OP_DIV_FLOAT, "div", /)
-            OP_END
+        OP_END
 
-        case OP_REM_FLOAT:
-            HANDLE_OPCODE(OP_REM_FLOAT /*vAA, vBB, vCC*/) {
+        case OP_REM_FLOAT: HANDLE_OPCODE(OP_REM_FLOAT /*vAA, vBB, vCC*/)
             u2 srcRegs;
             vdst = INST_AA(inst);
             srcRegs = FETCH(1);
@@ -1152,25 +1005,23 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             vsrc2 = srcRegs >> 8;
             LOG_D("|%s-float v%d,v%d,v%d", "mod", vdst, vsrc1, vsrc2);
             SET_REGISTER_FLOAT(vdst, fmodf(GET_REGISTER_FLOAT(vsrc1), GET_REGISTER_FLOAT(vsrc2)));
-        }
             FINISH(2);
-            OP_END
+        OP_END
 
             //0xab-0xaf
         case OP_ADD_DOUBLE: HANDLE_OP_X_DOUBLE(OP_ADD_DOUBLE, "add", +)
-            OP_END
+        OP_END
 
         case OP_SUB_DOUBLE: HANDLE_OP_X_DOUBLE(OP_SUB_DOUBLE, "sub", -)
-            OP_END
+        OP_END
 
         case OP_MUL_DOUBLE: HANDLE_OP_X_DOUBLE(OP_MUL_DOUBLE, "mul", *)
-            OP_END
+        OP_END
 
         case OP_DIV_DOUBLE: HANDLE_OP_X_DOUBLE(OP_DIV_DOUBLE, "div", /)
-            OP_END
+        OP_END
 
-        case OP_REM_DOUBLE:
-            HANDLE_OPCODE(OP_REM_DOUBLE /*vAA, vBB, vCC*/) {
+        case OP_REM_DOUBLE: HANDLE_OPCODE(OP_REM_DOUBLE /*vAA, vBB, vCC*/)
             u2 srcRegs;
             vdst = INST_AA(inst);
             srcRegs = FETCH(1);
@@ -1178,198 +1029,155 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             vsrc2 = srcRegs >> 8;
             LOG_D("|%s-double v%d,v%d,v%d", "mod", vdst, vsrc1, vsrc2);
             SET_REGISTER_DOUBLE(vdst, fmod(GET_REGISTER_DOUBLE(vsrc1), GET_REGISTER_DOUBLE(vsrc2)));
-        }
             FINISH(2);
-            OP_END
+        OP_END
 
             // 0xb0-0xba
-        case OP_ADD_INT_2ADDR:
-        HANDLE_OP_X_INT_2ADDR(OP_ADD_INT_2ADDR, "add", +, 0)
-            OP_END
+        case OP_ADD_INT_2ADDR: HANDLE_OP_X_INT_2ADDR(OP_ADD_INT_2ADDR, "add", +, 0)
+        OP_END
 
-        case OP_SUB_INT_2ADDR:
-        HANDLE_OP_X_INT_2ADDR(OP_SUB_INT_2ADDR, "sub", -, 0)
-            OP_END
+        case OP_SUB_INT_2ADDR: HANDLE_OP_X_INT_2ADDR(OP_SUB_INT_2ADDR, "sub", -, 0)
+        OP_END
 
-        case OP_MUL_INT_2ADDR:
-        HANDLE_OP_X_INT_2ADDR(OP_MUL_INT_2ADDR, "mul", *, 0)
-            OP_END
+        case OP_MUL_INT_2ADDR: HANDLE_OP_X_INT_2ADDR(OP_MUL_INT_2ADDR, "mul", *, 0)
+        OP_END
 
-        case OP_DIV_INT_2ADDR:
-        HANDLE_OP_X_INT_2ADDR(OP_DIV_INT_2ADDR, "div", /, 1)
-            OP_END
+        case OP_DIV_INT_2ADDR: HANDLE_OP_X_INT_2ADDR(OP_DIV_INT_2ADDR, "div", /, 1)
+        OP_END
 
-        case OP_REM_INT_2ADDR:
-        HANDLE_OP_X_INT_2ADDR(OP_REM_INT_2ADDR, "rem", %, 2)
-            OP_END
+        case OP_REM_INT_2ADDR: HANDLE_OP_X_INT_2ADDR(OP_REM_INT_2ADDR, "rem", %, 2)
+        OP_END
 
-        case OP_AND_INT_2ADDR:
-        HANDLE_OP_X_INT_2ADDR(OP_AND_INT_2ADDR, "and", &, 0)
-            OP_END
+        case OP_AND_INT_2ADDR: HANDLE_OP_X_INT_2ADDR(OP_AND_INT_2ADDR, "and", &, 0)
+        OP_END
 
-        case OP_OR_INT_2ADDR:
-        HANDLE_OP_X_INT_2ADDR(OP_OR_INT_2ADDR, "or", |, 0)
-            OP_END
+        case OP_OR_INT_2ADDR: HANDLE_OP_X_INT_2ADDR(OP_OR_INT_2ADDR, "or", |, 0)
+        OP_END
 
-        case OP_XOR_INT_2ADDR:
-        HANDLE_OP_X_INT_2ADDR(OP_XOR_INT_2ADDR, "xor", ^, 0)
-            OP_END
+        case OP_XOR_INT_2ADDR: HANDLE_OP_X_INT_2ADDR(OP_XOR_INT_2ADDR, "xor", ^, 0)
+        OP_END
 
-        case OP_SHL_INT_2ADDR:
-        HANDLE_OP_SHX_INT_2ADDR(OP_SHL_INT_2ADDR, "shl", (s4), <<)
-            OP_END
+        case OP_SHL_INT_2ADDR: HANDLE_OP_SHX_INT_2ADDR(OP_SHL_INT_2ADDR, "shl", (s4), <<)
+        OP_END
 
-        case OP_SHR_INT_2ADDR:
-        HANDLE_OP_SHX_INT_2ADDR(OP_SHR_INT_2ADDR, "shr", (s4), >>)
-            OP_END
+        case OP_SHR_INT_2ADDR: HANDLE_OP_SHX_INT_2ADDR(OP_SHR_INT_2ADDR, "shr", (s4), >>)
+        OP_END
 
-        case OP_USHR_INT_2ADDR:
-        HANDLE_OP_SHX_INT_2ADDR(OP_USHR_INT_2ADDR, "ushr", (u4), >>)
-            OP_END
+        case OP_USHR_INT_2ADDR: HANDLE_OP_SHX_INT_2ADDR(OP_USHR_INT_2ADDR, "ushr", (u4), >>)
+        OP_END
 
             //0xbb-0xc5
-        case OP_ADD_LONG_2ADDR:
-        HANDLE_OP_X_LONG_2ADDR(OP_ADD_LONG_2ADDR, "add", +, 0)
-            OP_END
+        case OP_ADD_LONG_2ADDR: HANDLE_OP_X_LONG_2ADDR(OP_ADD_LONG_2ADDR, "add", +, 0)
+        OP_END
 
-        case OP_SUB_LONG_2ADDR:
-        HANDLE_OP_X_LONG_2ADDR(OP_SUB_LONG_2ADDR, "sub", -, 0)
-            OP_END
+        case OP_SUB_LONG_2ADDR: HANDLE_OP_X_LONG_2ADDR(OP_SUB_LONG_2ADDR, "sub", -, 0)
+        OP_END
 
-        case OP_MUL_LONG_2ADDR:
-        HANDLE_OP_X_LONG_2ADDR(OP_MUL_LONG_2ADDR, "mul", *, 0)
-            OP_END
+        case OP_MUL_LONG_2ADDR: HANDLE_OP_X_LONG_2ADDR(OP_MUL_LONG_2ADDR, "mul", *, 0)
+        OP_END
 
-        case OP_DIV_LONG_2ADDR:
-        HANDLE_OP_X_LONG_2ADDR(OP_DIV_LONG_2ADDR, "div", /, 1)
-            OP_END
+        case OP_DIV_LONG_2ADDR: HANDLE_OP_X_LONG_2ADDR(OP_DIV_LONG_2ADDR, "div", /, 1)
+        OP_END
 
-        case OP_REM_LONG_2ADDR:
-        HANDLE_OP_X_LONG_2ADDR(OP_REM_LONG_2ADDR, "rem", %, 2)
-            OP_END
+        case OP_REM_LONG_2ADDR: HANDLE_OP_X_LONG_2ADDR(OP_REM_LONG_2ADDR, "rem", %, 2)
+        OP_END
 
-        case OP_AND_LONG_2ADDR:
-        HANDLE_OP_X_LONG_2ADDR(OP_AND_LONG_2ADDR, "and", &, 0)
-            OP_END
+        case OP_AND_LONG_2ADDR: HANDLE_OP_X_LONG_2ADDR(OP_AND_LONG_2ADDR, "and", &, 0)
+        OP_END
 
-        case OP_OR_LONG_2ADDR:
-        HANDLE_OP_X_LONG_2ADDR(OP_OR_LONG_2ADDR, "or", |, 0)
-            OP_END
+        case OP_OR_LONG_2ADDR: HANDLE_OP_X_LONG_2ADDR(OP_OR_LONG_2ADDR, "or", |, 0)
+        OP_END
 
-        case OP_XOR_LONG_2ADDR:
-        HANDLE_OP_X_LONG_2ADDR(OP_XOR_LONG_2ADDR, "xor", ^, 0)
-            OP_END
+        case OP_XOR_LONG_2ADDR: HANDLE_OP_X_LONG_2ADDR(OP_XOR_LONG_2ADDR, "xor", ^, 0)
+        OP_END
 
-        case OP_SHL_LONG_2ADDR:
-        HANDLE_OP_SHX_LONG_2ADDR(OP_SHL_LONG_2ADDR, "shl", (s8), <<)
-            OP_END
+        case OP_SHL_LONG_2ADDR: HANDLE_OP_SHX_LONG_2ADDR(OP_SHL_LONG_2ADDR, "shl", (s8), <<)
+        OP_END
 
-        case OP_SHR_LONG_2ADDR:
-        HANDLE_OP_SHX_LONG_2ADDR(OP_SHR_LONG_2ADDR, "shr", (s8), >>)
-            OP_END
+        case OP_SHR_LONG_2ADDR: HANDLE_OP_SHX_LONG_2ADDR(OP_SHR_LONG_2ADDR, "shr", (s8), >>)
+        OP_END
 
-        case OP_USHR_LONG_2ADDR:
-        HANDLE_OP_SHX_LONG_2ADDR(OP_USHR_LONG_2ADDR, "ushr", (u8), >>)
-            OP_END
+        case OP_USHR_LONG_2ADDR: HANDLE_OP_SHX_LONG_2ADDR(OP_USHR_LONG_2ADDR, "ushr", (u8), >>)
+        OP_END
 
             // 0xc6-0xca
-        case OP_ADD_FLOAT_2ADDR:
-        HANDLE_OP_X_FLOAT_2ADDR(OP_ADD_FLOAT_2ADDR, "add", +)
-            OP_END
+        case OP_ADD_FLOAT_2ADDR: HANDLE_OP_X_FLOAT_2ADDR(OP_ADD_FLOAT_2ADDR, "add", +)
+        OP_END
 
-        case OP_SUB_FLOAT_2ADDR:
-        HANDLE_OP_X_FLOAT_2ADDR(OP_SUB_FLOAT_2ADDR, "sub", -)
-            OP_END
+        case OP_SUB_FLOAT_2ADDR: HANDLE_OP_X_FLOAT_2ADDR(OP_SUB_FLOAT_2ADDR, "sub", -)
+        OP_END
 
-        case OP_MUL_FLOAT_2ADDR:
-        HANDLE_OP_X_FLOAT_2ADDR(OP_MUL_FLOAT_2ADDR, "mul", *)
-            OP_END
+        case OP_MUL_FLOAT_2ADDR: HANDLE_OP_X_FLOAT_2ADDR(OP_MUL_FLOAT_2ADDR, "mul", *)
+        OP_END
 
-        case OP_DIV_FLOAT_2ADDR:
-        HANDLE_OP_X_FLOAT_2ADDR(OP_DIV_FLOAT_2ADDR, "div", /)
-            OP_END
+        case OP_DIV_FLOAT_2ADDR: HANDLE_OP_X_FLOAT_2ADDR(OP_DIV_FLOAT_2ADDR, "div", /)
+        OP_END
 
-        case OP_REM_FLOAT_2ADDR:
-            HANDLE_OPCODE(OP_REM_FLOAT_2ADDR /*vA, vB*/)
+        case OP_REM_FLOAT_2ADDR: HANDLE_OPCODE(OP_REM_FLOAT_2ADDR /*vA, vB*/)
             vdst = static_cast<u2>(INST_A(inst));
             vsrc1 = INST_B(inst);
             LOG_D("|%s-float-2addr v%d,v%d", "mod", vdst, vsrc1);
             SET_REGISTER_FLOAT(vdst, fmodf(GET_REGISTER_FLOAT(vdst), GET_REGISTER_FLOAT(vsrc1)));
             FINISH(1);
-            OP_END
+        OP_END
 
             // 0xcb-0xcf
-        case OP_ADD_DOUBLE_2ADDR:
-        HANDLE_OP_X_DOUBLE_2ADDR(OP_ADD_DOUBLE_2ADDR, "add", +)
-            OP_END
+        case OP_ADD_DOUBLE_2ADDR: HANDLE_OP_X_DOUBLE_2ADDR(OP_ADD_DOUBLE_2ADDR, "add", +)
+        OP_END
 
-        case OP_SUB_DOUBLE_2ADDR:
-        HANDLE_OP_X_DOUBLE_2ADDR(OP_SUB_DOUBLE_2ADDR, "sub", -)
-            OP_END
+        case OP_SUB_DOUBLE_2ADDR: HANDLE_OP_X_DOUBLE_2ADDR(OP_SUB_DOUBLE_2ADDR, "sub", -)
+        OP_END
 
-        case OP_MUL_DOUBLE_2ADDR:
-        HANDLE_OP_X_DOUBLE_2ADDR(OP_MUL_DOUBLE_2ADDR, "mul", *)
-            OP_END
+        case OP_MUL_DOUBLE_2ADDR: HANDLE_OP_X_DOUBLE_2ADDR(OP_MUL_DOUBLE_2ADDR, "mul", *)
+        OP_END
 
-        case OP_DIV_DOUBLE_2ADDR:
-        HANDLE_OP_X_DOUBLE_2ADDR(OP_DIV_DOUBLE_2ADDR, "div", /)
-            OP_END
+        case OP_DIV_DOUBLE_2ADDR: HANDLE_OP_X_DOUBLE_2ADDR(OP_DIV_DOUBLE_2ADDR, "div", /)
+        OP_END
 
-        case OP_REM_DOUBLE_2ADDR:
-            HANDLE_OPCODE(OP_REM_DOUBLE_2ADDR /*vA, vB*/)
+        case OP_REM_DOUBLE_2ADDR: HANDLE_OPCODE(OP_REM_DOUBLE_2ADDR /*vA, vB*/)
             vdst = static_cast<u2>(INST_A(inst));
             vsrc1 = INST_B(inst);
             LOG_D("|%s-double-2addr v%d,v%d", "mod", vdst, vsrc1);
             SET_REGISTER_DOUBLE(vdst, fmod(GET_REGISTER_DOUBLE(vdst), GET_REGISTER_DOUBLE(vsrc1)));
             FINISH(1);
-            OP_END
+        OP_END
 
             // 0xd0-0xd7
-        case OP_ADD_INT_LIT16:
-        HANDLE_OP_X_INT_LIT16(OP_ADD_INT_LIT16, "add", +, 0)
-            OP_END
+        case OP_ADD_INT_LIT16: HANDLE_OP_X_INT_LIT16(OP_ADD_INT_LIT16, "add", +, 0)
+        OP_END
 
-        case OP_RSUB_INT:
-            HANDLE_OPCODE(OP_RSUB_INT /*vA, vB, #+CCCC*/) {
+        case OP_RSUB_INT: HANDLE_OPCODE(OP_RSUB_INT /*vA, vB, #+CCCC*/)
             vdst = static_cast<u2>(INST_A(inst));
             vsrc1 = INST_B(inst);
             vsrc2 = FETCH(1);
             LOG_D("|rsub-int v%d,v%d,#+0x%04x", vdst, vsrc1, vsrc2);
             SET_REGISTER(vdst, (s2) vsrc2 - (s4) GET_REGISTER(vsrc1));
-        }
             FINISH(2);
-            OP_END
+        OP_END
 
-        case OP_MUL_INT_LIT16:
-        HANDLE_OP_X_INT_LIT16(OP_MUL_INT_LIT16, "mul", *, 0)
-            OP_END
+        case OP_MUL_INT_LIT16: HANDLE_OP_X_INT_LIT16(OP_MUL_INT_LIT16, "mul", *, 0)
+        OP_END
 
-        case OP_DIV_INT_LIT16:
-        HANDLE_OP_X_INT_LIT16(OP_DIV_INT_LIT16, "div", /, 1)
-            OP_END
+        case OP_DIV_INT_LIT16: HANDLE_OP_X_INT_LIT16(OP_DIV_INT_LIT16, "div", /, 1)
+        OP_END
 
-        case OP_REM_INT_LIT16:
-        HANDLE_OP_X_INT_LIT16(OP_REM_INT_LIT16, "rem", %, 2)
-            OP_END
+        case OP_REM_INT_LIT16: HANDLE_OP_X_INT_LIT16(OP_REM_INT_LIT16, "rem", %, 2)
+        OP_END
 
-        case OP_AND_INT_LIT16:
-        HANDLE_OP_X_INT_LIT16(OP_AND_INT_LIT16, "and", &, 0)
-            OP_END
+        case OP_AND_INT_LIT16: HANDLE_OP_X_INT_LIT16(OP_AND_INT_LIT16, "and", &, 0)
+        OP_END
 
-        case OP_OR_INT_LIT16:
-        HANDLE_OP_X_INT_LIT16(OP_OR_INT_LIT16, "or", |, 0)
-            OP_END
+        case OP_OR_INT_LIT16: HANDLE_OP_X_INT_LIT16(OP_OR_INT_LIT16, "or", |, 0)
+        OP_END
 
-        case OP_XOR_INT_LIT16:
-        HANDLE_OP_X_INT_LIT16(OP_XOR_INT_LIT16, "xor", ^, 0)
-            OP_END
+        case OP_XOR_INT_LIT16: HANDLE_OP_X_INT_LIT16(OP_XOR_INT_LIT16, "xor", ^, 0)
+        OP_END
 
             // 0xd8-0xe2
         case OP_ADD_INT_LIT8: HANDLE_OP_X_INT_LIT8(OP_ADD_INT_LIT8, "add", +, 0)
-            OP_END
+        OP_END
 
-        case OP_RSUB_INT_LIT8:
-            HANDLE_OPCODE(OP_RSUB_INT_LIT8 /*vAA, vBB, #+CC*/) {
+        case OP_RSUB_INT_LIT8: HANDLE_OPCODE(OP_RSUB_INT_LIT8 /*vAA, vBB, #+CC*/)
             u2 litInfo;
             vdst = INST_AA(inst);
             litInfo = FETCH(1);
@@ -1377,132 +1185,85 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             vsrc2 = litInfo >> 8;
             LOG_D("|%s-int/lit8 v%d,v%d,#+0x%02x", "rsub", vdst, vsrc1, vsrc2);
             SET_REGISTER(vdst, (s1) vsrc2 - (s4) GET_REGISTER(vsrc1));
-        }
             FINISH(2);
-            OP_END
+        OP_END
 
         case OP_MUL_INT_LIT8: HANDLE_OP_X_INT_LIT8(OP_MUL_INT_LIT8, "mul", *, 0)
-            OP_END
+        OP_END
 
         case OP_DIV_INT_LIT8: HANDLE_OP_X_INT_LIT8(OP_DIV_INT_LIT8, "div", /, 1)
-            OP_END
+        OP_END
 
         case OP_REM_INT_LIT8: HANDLE_OP_X_INT_LIT8(OP_REM_INT_LIT8, "rem", %, 2)
-            OP_END
+        OP_END
 
         case OP_AND_INT_LIT8: HANDLE_OP_X_INT_LIT8(OP_AND_INT_LIT8, "and", &, 0)
-            OP_END
+        OP_END
 
         case OP_OR_INT_LIT8: HANDLE_OP_X_INT_LIT8(OP_OR_INT_LIT8, "or", |, 0)
-            OP_END
+        OP_END
 
         case OP_XOR_INT_LIT8: HANDLE_OP_X_INT_LIT8(OP_XOR_INT_LIT8, "xor", ^, 0)
-            OP_END
+        OP_END
 
         case OP_SHL_INT_LIT8: HANDLE_OP_SHX_INT_LIT8(OP_SHL_INT_LIT8, "shl", (s4), <<)
-            OP_END
+        OP_END
 
         case OP_SHR_INT_LIT8: HANDLE_OP_SHX_INT_LIT8(OP_SHR_INT_LIT8, "shr", (s4), >>)
-            OP_END
+        OP_END
 
         case OP_USHR_INT_LIT8: HANDLE_OP_SHX_INT_LIT8(OP_USHR_INT_LIT8, "ushr", (u4), >>)
-            OP_END
+        OP_END
 
             // 0xe3-0xeb
         case OP_IGET_VOLATILE: HANDLE_IGET_X(OP_IGET_VOLATILE, "-volatile", s4,)
-            OP_END
+        OP_END
 
         case OP_IPUT_VOLATILE: HANDLE_IPUT_X(OP_IPUT_VOLATILE, "-volatile",)
-            OP_END
+        OP_END
 
         case OP_SGET_VOLATILE: HANDLE_SGET_X(OP_SGET_VOLATILE, "-volatile", s4,)
-            OP_END
+        OP_END
 
         case OP_SPUT_VOLATILE: HANDLE_SPUT_X(OP_SPUT_VOLATILE, "-volatile",)
-            OP_END
+        OP_END
 
-        case OP_IGET_OBJECT_VOLATILE: HANDLE_IGET_X(OP_IGET_OBJECT_VOLATILE, "-object-volatile", s4,
+        case OP_IGET_OBJECT_VOLATILE: HANDLE_IGET_X(OP_IGET_OBJECT_VOLATILE, "-object-volatile", s8,
                                                     _AS_OBJECT)
-            OP_END
+        OP_END
 
         case OP_IGET_WIDE_VOLATILE: HANDLE_IGET_X(OP_IGET_WIDE_VOLATILE, "-wide-volatile", s8,
                                                   _WIDE)
-            OP_END
+        OP_END
 
         case OP_IPUT_WIDE_VOLATILE: HANDLE_IPUT_X(OP_IPUT_WIDE_VOLATILE, "-wide-volatile", _WIDE)
-            OP_END
+        OP_END
 
         case OP_SGET_WIDE_VOLATILE: HANDLE_SGET_X(OP_SGET_WIDE_VOLATILE, "-wide-volatile", s8,
                                                   _WIDE)
-            OP_END
+        OP_END
 
         case OP_SPUT_WIDE_VOLATILE: HANDLE_SPUT_X(OP_SPUT_WIDE_VOLATILE, "-wide-volatile", _WIDE)
-            OP_END
+        OP_END
 
-        case OP_THROW_VERIFICATION_ERROR:
-            HANDLE_OPCODE(OP_THROW_VERIFICATION_ERROR)
+        case OP_THROW_VERIFICATION_ERROR: HANDLE_OPCODE(OP_THROW_VERIFICATION_ERROR)
             vsrc1 = INST_AA(inst);
             ref = FETCH(1);             /* class/field/method ref */
             dvmThrowVerificationError(curMethod, vsrc1, ref);
             GOTO_exceptionThrown();
-            OP_END
-
-            //0xf2-0xfe
-//        case OP_IGET_QUICK:
-//            HANDLE_IGET_X_QUICK(OP_IGET_QUICK,          "", Int, )
-//            OP_END
-//
-//        case OP_IGET_WIDE_QUICK:
-//            HANDLE_IGET_X_QUICK(OP_IGET_WIDE_QUICK,     "-wide", Long, _WIDE)
-//            OP_END
-//
-//        case OP_IGET_OBJECT_QUICK:
-//            HANDLE_IGET_X_QUICK(OP_IGET_OBJECT_QUICK,   "-object", Object, _AS_OBJECT)
-//            OP_END
-//
-//        case OP_IPUT_QUICK:
-//            HANDLE_IPUT_X_QUICK(OP_IPUT_QUICK,          "", Int, )
-//            OP_END
-//
-//        case OP_IPUT_WIDE_QUICK:
-//            HANDLE_IPUT_X_QUICK(OP_IPUT_WIDE_QUICK,     "-wide", Long, _WIDE)
-//            OP_END
-//
-//        case OP_IPUT_OBJECT_QUICK:
-//            HANDLE_IPUT_X_QUICK(OP_IPUT_OBJECT_QUICK,   "-object", Object, _AS_OBJECT)
-//            OP_END
-//
-//        case OP_INVOKE_VIRTUAL_QUICK:
-//            HANDLE_OPCODE(OP_INVOKE_VIRTUAL_QUICK /*vB, {vD, vE, vF, vG, vA}, meth@CCCC*/)
-//            GOTO_invoke(invokeVirtualQuick, false);
-//            OP_END
-//
-//        case OP_INVOKE_VIRTUAL_QUICK_RANGE:
-//            HANDLE_OPCODE(OP_INVOKE_VIRTUAL_QUICK_RANGE/*{vCCCC..v(CCCC+AA-1)}, meth@BBBB*/)
-//            GOTO_invoke(invokeVirtualQuick, true);
-//            OP_END
-//
-//        case OP_INVOKE_SUPER_QUICK:
-//            HANDLE_OPCODE(OP_INVOKE_SUPER_QUICK /*vB, {vD, vE, vF, vG, vA}, meth@CCCC*/)
-//            GOTO_invoke(invokeSuperQuick, false);
-//            OP_END
-//
-//        case OP_INVOKE_SUPER_QUICK_RANGE:
-//            HANDLE_OPCODE(OP_INVOKE_SUPER_QUICK_RANGE /*{vCCCC..v(CCCC+AA-1)}, meth@BBBB*/)
-//            GOTO_invoke(invokeSuperQuick, true);
-//            OP_END
+        OP_END
 
         case OP_IPUT_OBJECT_VOLATILE: HANDLE_IPUT_X(OP_IPUT_OBJECT_VOLATILE, "-object-volatile",
                                                     _AS_OBJECT)
-            OP_END
+        OP_END
 
-        case OP_SGET_OBJECT_VOLATILE: HANDLE_SGET_X(OP_SGET_OBJECT_VOLATILE, "-object-volatile", s4,
+        case OP_SGET_OBJECT_VOLATILE: HANDLE_SGET_X(OP_SGET_OBJECT_VOLATILE, "-object-volatile", s8,
                                                     _AS_OBJECT)
-            OP_END
+        OP_END
 
         case OP_SPUT_OBJECT_VOLATILE: HANDLE_SPUT_X(OP_SPUT_OBJECT_VOLATILE, "-object-volatile",
                                                     _AS_OBJECT)
-            OP_END
+        OP_END
         default:
             LOG_E("unknown opcode 0x%02x\n", curOp);
             dvmThrowRuntimeException("unknown opcode");
@@ -1529,7 +1290,6 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
     {
         jclass arrayClass;
         jarray newArray;
-        u4 *contents;
         char typeCh;
         u4 arg5;
 
@@ -1540,12 +1300,12 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             vsrc1 = INST_AA(inst);  /* #of elements */
             arg5 = -1;              /* silence compiler warning */
             LOG_D("|filled-new-array-range args=%d @0x%04x {regs=v%d-v%d}",
-                 vsrc1, ref, vdst, vdst + vsrc1 - 1);
+                  vsrc1, ref, vdst, vdst + vsrc1 - 1);
         } else {
             arg5 = static_cast<u4>(INST_A(inst));
             vsrc1 = INST_B(inst);   /* #of elements */
             LOG_D("|filled-new-array args=%d @0x%04x {regs=0x%04x %x}",
-                 vsrc1, ref, vdst, arg5);
+                  vsrc1, ref, vdst, arg5);
         }
 
         /*
@@ -1555,7 +1315,6 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
         if (arrayClass == nullptr) {
             GOTO_bail();
         }
-
 
         const string descriptor = getClassDescriptorByJClass(arrayClass);
         /* verifier guarantees this is an array class */
@@ -1577,44 +1336,72 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             GOTO_bail();
         }
 
-        contents = new u4[vsrc1]();
-        /*
-         * Copy args.  This may corrupt vsrc1/vdst.
-         */
-        if (methodCallRange) {
-            for (int i = 0; i < vsrc1; i++) {
-                memcpy(contents + i, &(GET_REGISTER(vdst + i)), sizeof(u4));
-            }
-        } else {
-            assert(vsrc1 <= 5);
-            switch (vsrc1) {
-                case 5:
-                    memcpy(contents + 4, &(GET_REGISTER(vsrc1 & 0x0f)), sizeof(u4));
-                case 4:
-                    memcpy(contents + 3, &(GET_REGISTER(vdst >> 12)), sizeof(u4));
-                case 3:
-                    memcpy(contents + 2, &(GET_REGISTER((vdst & 0x0f00) >> 8)), sizeof(u4));
-                case 2:
-                    memcpy(contents + 1, &(GET_REGISTER((vdst & 0x00f0) >> 4)), sizeof(u4));
-                case 1:
-                    memcpy(contents, &(GET_REGISTER(vdst & 0x0f)), sizeof(u4));
-                default:;
-            }
-
-        }
-
         if (typeCh == 'L' || typeCh == '[') {
             string tmp = descriptor.data() + 1;
             if (tmp[0] == 'L') {
                 tmp = tmp.substr(1, tmp.size() - 1);
             }
             jclass elementClazz = (*env).FindClass(tmp.data());
+            jobject *contents = new jobject[vsrc1]();
+            /*
+             * Copy args.  This may corrupt vsrc1/vdst.
+             */
+            if (methodCallRange) {
+                for (int i = 0; i < vsrc1; i++) {
+                    memcpy(contents + i, &(GET_REGISTER_AS_OBJECT(vdst + i)), sizeof(jobject));
+                }
+            } else {
+                assert(vsrc1 <= 5);
+                switch (vsrc1) {
+                    case 5:
+                        memcpy(contents + 4, &(GET_REGISTER_AS_OBJECT(vsrc1 & 0x0f)),
+                               sizeof(jobject));
+                    case 4:
+                        memcpy(contents + 3, &(GET_REGISTER_AS_OBJECT(vdst >> 12)),
+                               sizeof(jobject));
+                    case 3:
+                        memcpy(contents + 2, &(GET_REGISTER_AS_OBJECT((vdst & 0x0f00) >> 8)),
+                               sizeof(jobject));
+                    case 2:
+                        memcpy(contents + 1, &(GET_REGISTER_AS_OBJECT((vdst & 0x00f0) >> 4)),
+                               sizeof(jobject));
+                    case 1:
+                        memcpy(contents, &(GET_REGISTER_AS_OBJECT(vdst & 0x0f)), sizeof(jobject));
+                    default:;
+                }
+
+            }
             newArray = (*env).NewObjectArray(vsrc1, elementClazz, nullptr);
             for (int i = 0; i < vsrc1; i++) {
                 (*env).SetObjectArrayElement(reinterpret_cast<jobjectArray>(newArray), i,
-                                             reinterpret_cast<jobject>(contents[i]));
+                                             contents[i]);
             }
         } else {
+            u4 *contents = new u4[vsrc1]();
+            /*
+             * Copy args.  This may corrupt vsrc1/vdst.
+             */
+            if (methodCallRange) {
+                for (int i = 0; i < vsrc1; i++) {
+                    memcpy(contents + i, &(GET_REGISTER(vdst + i)), sizeof(u4));
+                }
+            } else {
+                assert(vsrc1 <= 5);
+                switch (vsrc1) {
+                    case 5:
+                        memcpy(contents + 4, &(GET_REGISTER(vsrc1 & 0x0f)), sizeof(u4));
+                    case 4:
+                        memcpy(contents + 3, &(GET_REGISTER(vdst >> 12)), sizeof(u4));
+                    case 3:
+                        memcpy(contents + 2, &(GET_REGISTER((vdst & 0x0f00) >> 8)), sizeof(u4));
+                    case 2:
+                        memcpy(contents + 1, &(GET_REGISTER((vdst & 0x00f0) >> 4)), sizeof(u4));
+                    case 1:
+                        memcpy(contents, &(GET_REGISTER(vdst & 0x0f)), sizeof(u4));
+                    default:;
+                }
+
+            }
             newArray = (*env).NewIntArray(vsrc1);
             (*env).SetIntArrayRegion(reinterpret_cast<jintArray>(newArray), 0, vsrc1,
                                      reinterpret_cast<const jint *>(contents));
@@ -1628,105 +1415,33 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
 
     GOTO_TARGET(invokeSuper, bool methodCallRange)
     {
-        u2 thisReg;
-
         vsrc1 = INST_AA(inst);      /* AA (count) or BA (count + arg 5) */
         ref = FETCH(1);             /* method ref */
         vdst = FETCH(2);            /* 4 regs -or- first reg */
 
         if (methodCallRange) {
             LOG_D("|invoke-super-range args=%d @0x%04x {regs=v%d-v%d}",
-                 vsrc1, ref, vdst, vdst + vsrc1 - 1);
-            thisReg = vdst;
+                  vsrc1, ref, vdst, vdst + vsrc1 - 1);
         } else {
             LOG_D("|invoke-super args=%d @0x%04x {regs=0x%04x %x}",
-                 vsrc1 >> 4, ref, vdst, vsrc1 & 0x0f);
-            thisReg = static_cast<u2>(vdst & 0x0f);
-        }
-
-        /* impossible in well-formed code, but we must check nevertheless */
-        if (!checkForNull((jobject) GET_REGISTER(thisReg))) {
-            GOTO_bail();
+                  vsrc1 >> 4, ref, vdst, vsrc1 & 0x0f);
         }
 
         methodToCallType = METHOD_SUPER;
-        methodToCall = dvmResolveMethod(curMethod, ref, methodToCallType,
-                                        &methodToCallClazz);
+        methodToCall = dvmResolveMethod(curMethod, ref, methodToCallType, &methodToCallClazz);
         if (methodToCall == nullptr) {
             GOTO_bail();
         }
-//        assert(!dvmIsAbstractMethod(reinterpret_cast<Method *>(methodToCall)) ||
-//               (reinterpret_cast<Method *>(methodToCall))->nativeFunc != nullptr);
 
-//        methodToCallClazz = (*env).GetSuperclass(methodToCallClazz);
-//        LOG_D("+++ super-virtual[%d]=%s.%s",
-//             (reinterpret_cast<Method *>(methodToCall))->methodIndex,
-//             (reinterpret_cast<Method *>(methodToCall))->clazz->descriptor,
-//             (reinterpret_cast<Method *>(methodToCall))->name);
+#if defined(SHELL_LOG)
+        vmMethodToCall = initVmMethodNoCode(methodToCall, vmMethodToCall);
+        LOG_D("+++ super-virtual=%s.%s", vmMethodToCall->clazzDescriptor, vmMethodToCall->name);
+        deleteVmMethod(vmMethodToCall);
+#endif
 
         GOTO_invokeMethod(methodCallRange, methodToCall, vsrc1, vdst);
     }
     GOTO_TARGET_END
-
-//
-//    GOTO_TARGET(invokeSuperQuick, bool methodCallRange)
-//    {
-//        u2 thisReg;
-//
-//        vsrc1 = INST_AA(inst);      /* AA (count) or BA (count + arg 5) */
-//        ref = FETCH(1);             /* vtable index */
-//        vdst = FETCH(2);            /* 4 regs -or- first reg */
-//
-//        if (methodCallRange) {
-//            LOG_D("|invoke-super-quick-range args=%d @0x%04x {regs=v%d-v%d}",
-//                 vsrc1, ref, vdst, vdst + vsrc1 - 1);
-//            thisReg = vdst;
-//        } else {
-//            LOG_D("|invoke-super-quick args=%d @0x%04x {regs=0x%04x %x}",
-//                 vsrc1 >> 4, ref, vdst, vsrc1 & 0x0f);
-//            thisReg = static_cast<u2>(vdst & 0x0f);
-//        }
-//        /* impossible in well-formed code, but we must check nevertheless */
-//        if (!checkForNull((jobject) GET_REGISTER(thisReg))) {
-//            GOTO_bail();
-//        }
-//
-//        assert(ref < (unsigned int) curMethod->clazz->super->vtableCount);
-//
-//        /*
-//         * Combine the object we found with the vtable offset in the
-//         * method's class.
-//         *
-//         * We're using the current method's class' superclass, not the
-//         * superclass of "this".  This is because we might be executing
-//         * in a method inherited from a superclass, and we want to run
-//         * in the method's class' superclass.
-//         */
-//        Method *pMethod = curMethod->clazz->super->vtable[ref];
-//        if (pMethod == nullptr) {
-//            LOG_E("+ unknown method or access denied");
-//            GOTO_bail();
-//        }
-//        methodToCall = reinterpret_cast<jmethodID>(pMethod);
-//        assert(!dvmIsAbstractMethod(pMethod) || pMethod->nativeFunc != nullptr);
-//
-//        methodToCallType = METHOD_SUPER;
-//
-//        DexFile *pDexFile = curMethod->clazz->pDvmDex->pDexFile;
-//        const DexProtoId *pProtoId = dexGetProtoId(pDexFile, pMethod->prototype.protoIdx);
-//        const DexTypeId *pTypeId = dexGetTypeId(pDexFile, pProtoId->returnTypeIdx);
-//        const DexStringId *pDexStringId = dexGetStringId(pDexFile, pTypeId->descriptorIdx);
-//        methodToCallReturn = dexGetStringData(pDexFile, pDexStringId);
-//
-//        string tmp = curMethod->clazz->super->descriptor;
-//        assert(tmp.size() > 0 && tmp[0] == 'L');
-//        tmp = tmp.substr(1, tmp.size() - 1);
-//        methodToCallClazz = (*env).FindClass(tmp.data());
-//
-//        LOG_D("+++ super-virtual[%d]=%s.%s", ref, pMethod->clazz->descriptor, pMethod->name);
-//        GOTO_invokeMethod(methodCallRange, methodToCall, vsrc1, vdst);
-//    }
-//    GOTO_TARGET_END
 
 
     GOTO_TARGET(invokeVirtual, bool methodCallRange, bool)
@@ -1742,12 +1457,12 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
         if (methodCallRange) {
             assert(vsrc1 > 0);
             LOG_D("|invoke-virtual-range args=%d @0x%04x {regs=v%d-v%d}",
-                 vsrc1, ref, vdst, vdst + vsrc1 - 1);
+                  vsrc1, ref, vdst, vdst + vsrc1 - 1);
 
         } else {
             assert((vsrc1 >> 4) > 0);
             LOG_D("|invoke-virtual args=%d @0x%04x {regs=0x%04x %x}",
-                 vsrc1 >> 4, ref, vdst, vsrc1 & 0x0f);
+                  vsrc1 >> 4, ref, vdst, vsrc1 & 0x0f);
         }
 
         /*
@@ -1755,79 +1470,21 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
          * type of the object.  We also verify access permissions here.
          */
         methodToCallType = METHOD_VIRTUAL;
-        methodToCall = dvmResolveMethod(curMethod, ref, methodToCallType,
-                                        &methodToCallClazz);
+        methodToCall = dvmResolveMethod(curMethod, ref, methodToCallType, &methodToCallClazz);
         if (methodToCall == nullptr) {
             LOG_E("+ unknown method or access denied");
             GOTO_bail();
         }
 
-//        assert(!dvmIsAbstractMethod(reinterpret_cast<Method *>(methodToCall)) ||
-//               (reinterpret_cast<Method *>(methodToCall))->nativeFunc != nullptr);
-        assert(methodToCall != nullptr);
-//        LOG_D("+++ virtual[%d]=%s.%s",
-//             (reinterpret_cast<Method *>(methodToCall))->methodIndex,
-//             (reinterpret_cast<Method *>(methodToCall))->clazz->descriptor,
-//             (reinterpret_cast<Method *>(methodToCall))->name);
+#if defined(SHELL_LOG)
+        vmMethodToCall = initVmMethodNoCode(methodToCall, vmMethodToCall);
+        LOG_D("+++ virtual=%s.%s", vmMethodToCall->clazzDescriptor, vmMethodToCall->name);
+        deleteVmMethod(vmMethodToCall);
+#endif
 
         GOTO_invokeMethod(methodCallRange, methodToCall, vsrc1, vdst);
     }
     GOTO_TARGET_END
-
-
-//    GOTO_TARGET(invokeVirtualQuick, bool methodCallRange)
-//    {
-//        jobject thisPtr;
-//        vsrc1 = INST_AA(inst);      /* AA (count) or BA (count + arg 5) */
-//        ref = FETCH(1);             /* vtable index */
-//        vdst = FETCH(2);            /* 4 regs -or- first reg */
-//
-//        /*
-//         * The object against which we are executing a method is always
-//         * in the first argument.
-//         */
-//        if (methodCallRange) {
-//            assert(vsrc1 > 0);
-//            LOG_D("|invoke-virtual-quick-range args=%d @0x%04x {regs=v%d-v%d}",
-//                 vsrc1, ref, vdst, vdst + vsrc1 - 1);
-//            thisPtr = (jobject) GET_REGISTER(vdst);
-//        } else {
-//            assert((vsrc1 >> 4) > 0);
-//            LOG_D("|invoke-virtual-quick args=%d @0x%04x {regs=0x%04x %x}",
-//                 vsrc1 >> 4, ref, vdst, vsrc1 & 0x0f);
-//            thisPtr = (jobject) GET_REGISTER(vdst & 0x0f);
-//        }
-//
-//        /*
-//         * Combine the object we found with the vtable offset in the
-//         * method.
-//         */
-//        ClassObject *pClassObject = getClassObjectByJObject(thisPtr);
-//        assert(ref < (unsigned int) pClassObject->vtableCount);
-//        Method *pMethod = pClassObject->vtable[ref];
-//        if (pMethod == nullptr) {
-//            LOG_E("+ unknown method or access denied");
-//            GOTO_bail();
-//        }
-//        methodToCall = reinterpret_cast<jmethodID>(pMethod);
-//
-//        methodToCallClazz = (*env).GetObjectClass(thisPtr);
-//
-//        DexFile *pDexFile = pClassObject->pDvmDex->pDexFile;
-//        const DexProtoId *pProtoId = dexGetProtoId(pDexFile, pMethod->prototype.protoIdx);
-//        const DexTypeId *pTypeId = dexGetTypeId(pDexFile, pProtoId->returnTypeIdx);
-//        const DexStringId *pDexStringId = dexGetStringId(pDexFile, pTypeId->descriptorIdx);
-//        methodToCallReturn = dexGetStringData(pDexFile, pDexStringId);
-//
-//        assert(!dvmIsAbstractMethod(pMethod) || pMethod->nativeFunc != nullptr);
-//        LOG_D("+++ virtual quick[%d]=%s.%s", pMethod->methodIndex, pMethod->clazz->descriptor,
-//             pMethod->name);
-//
-//        methodToCallType = METHOD_VIRTUAL;
-//        GOTO_invokeMethod(methodCallRange, methodToCall, vsrc1, vdst);
-//    }
-//    GOTO_TARGET_END
-
 
 
     GOTO_TARGET(invokeDirect, bool methodCallRange)
@@ -1838,10 +1495,10 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
 
         if (methodCallRange) {
             LOG_D("|invoke-direct-range args=%d @0x%04x {regs=v%d-v%d}",
-                 vsrc1, ref, vdst, vdst + vsrc1 - 1);
+                  vsrc1, ref, vdst, vdst + vsrc1 - 1);
         } else {
             LOG_D("|invoke-direct args=%d @0x%04x {regs=0x%04x %x}",
-                 vsrc1 >> 4, ref, vdst, vsrc1 & 0x0f);
+                  vsrc1 >> 4, ref, vdst, vsrc1 & 0x0f);
         }
 
         methodToCallType = METHOD_DIRECT;
@@ -1851,6 +1508,12 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             LOG_E("+ unknown direct method");     // should be impossible
             GOTO_bail();
         }
+
+#if defined(SHELL_LOG)
+        vmMethodToCall = initVmMethodNoCode(methodToCall, vmMethodToCall);
+        LOG_D("+++ direct=%s.%s", vmMethodToCall->clazzDescriptor, vmMethodToCall->name);
+        deleteVmMethod(vmMethodToCall);
+#endif
 
         GOTO_invokeMethod(methodCallRange, methodToCall, vsrc1, vdst);
     }
@@ -1866,10 +1529,10 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
 
         if (methodCallRange) {
             LOG_D("|invoke-static-range args=%d @0x%04x {regs=v%d-v%d}",
-                 vsrc1, ref, vdst, vdst + vsrc1 - 1);
+                  vsrc1, ref, vdst, vdst + vsrc1 - 1);
         } else {
             LOG_D("|invoke-static args=%d @0x%04x {regs=0x%04x %x}",
-                 vsrc1 >> 4, ref, vdst, vsrc1 & 0x0f);
+                  vsrc1 >> 4, ref, vdst, vsrc1 & 0x0f);
         }
 
         methodToCallType = METHOD_STATIC;
@@ -1878,6 +1541,13 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             LOG_E("+ unknown method");
             GOTO_bail();
         }
+
+#if defined(SHELL_LOG)
+        vmMethodToCall = initVmMethodNoCode(methodToCall, vmMethodToCall);
+        LOG_D("+++ static=%s.%s", vmMethodToCall->clazzDescriptor, vmMethodToCall->name);
+        deleteVmMethod(vmMethodToCall);
+#endif
+
         GOTO_invokeMethod(methodCallRange, methodToCall, vsrc1, vdst);
     }
     GOTO_TARGET_END
@@ -1885,8 +1555,6 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
 
     GOTO_TARGET(invokeInterface, bool methodCallRange)
     {
-        jobject thisPtr;
-
         vsrc1 = INST_AA(inst);      /* AA (count) or BA (count + arg 5) */
         ref = FETCH(1);             /* method ref */
         vdst = FETCH(2);            /* 4 regs -or- first reg */
@@ -1898,58 +1566,36 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
         if (methodCallRange) {
             assert(vsrc1 > 0);
             LOG_D("|invoke-interface-range args=%d @0x%04x {regs=v%d-v%d}",
-                 vsrc1, ref, vdst, vdst + vsrc1 - 1);
-            thisPtr = (jobject) GET_REGISTER(vdst);
+                  vsrc1, ref, vdst, vdst + vsrc1 - 1);
         } else {
             assert((vsrc1 >> 4) > 0);
             LOG_D("|invoke-interface args=%d @0x%04x {regs=0x%04x %x}",
-                 vsrc1 >> 4, ref, vdst, vsrc1 & 0x0f);
-            thisPtr = (jobject) GET_REGISTER(vdst & 0x0f);
+                  vsrc1 >> 4, ref, vdst, vsrc1 & 0x0f);
         }
-
-        if (!checkForNull(thisPtr)) {
-            GOTO_bail();
-        }
-
         /*
          * Given a class and a method index, find the Method* with the
          * actual code we want to execute.
          */
         methodToCallType = METHOD_INTERFACE;
-        methodToCall = dvmResolveMethod(curMethod, ref, methodToCallType,
-                                        &methodToCallClazz);
+        methodToCall = dvmResolveMethod(curMethod, ref, methodToCallType, &methodToCallClazz);
         if (methodToCall == nullptr) {
             /* impossible in verified DEX, need to check for it in unverified */
             dvmThrowIncompatibleClassChangeError("interface not implemented");
             GOTO_bail();
         }
-//        assert(!dvmIsAbstractMethod(reinterpret_cast<Method *>(methodToCall)) ||
-//               (reinterpret_cast<Method *>(methodToCall))->nativeFunc != nullptr);
-//        LOG_D("+++ interface concrete=%s.%s",
-//             (reinterpret_cast<Method *>(methodToCall))->clazz->descriptor,
-//             (reinterpret_cast<Method *>(methodToCall))->name);
+
+#if defined(SHELL_LOG)
+        vmMethodToCall = initVmMethodNoCode(methodToCall, vmMethodToCall);
+        LOG_D("+++ interface concrete=%s.%s", vmMethodToCall->clazzDescriptor,
+              vmMethodToCall->name);
+        deleteVmMethod(vmMethodToCall);
+#endif
 
         GOTO_invokeMethod(methodCallRange, methodToCall, vsrc1, vdst);
     }
     GOTO_TARGET_END
 
-    /*
-     * General handling for invoke-{virtual,super,direct,static,interface},
-     * including "quick" variants.
-     *
-     * Set "methodToCall" to the Method we're calling, and "methodCallRange"
-     * depending on whether this is a "/range" instruction.
-     *
-     * For a range call:
-     *  "vsrc1" holds the argument count (8 bits)
-     *  "vdst" holds the first argument in the range
-     * For a non-range call:
-     *  "vsrc1" holds the argument count (4 bits) and the 5th argument index
-     *  "vdst" holds four 4-bit register indices
-     *
-     * The caller must EXPORT_PC before jumping here, because any method
-     * call can throw a stack overflow exception.
-     */
+
     GOTO_TARGET(invokeMethod, bool methodCallRange, const jmethodID _methodToCall, u2 count,
                 u2 regs)
     {
@@ -1967,11 +1613,9 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             GOTO_exceptionThrown();
         }
 
-        const auto *vmMethodToCall = initVmMethodNoCode(methodToCall);
+        vmMethodToCall = initVmMethodNoCode(methodToCall, vmMethodToCall);
         const char *methodToCallShorty = dexStringById(vmMethodToCall->dexFile,
                                                        vmMethodToCall->protoId->shortyIdx);
-        deleteVmMethod(vmMethodToCall);
-
         /*
          * Copy args.  This may corrupt vsrc1/vdst.
          */
@@ -1980,26 +1624,21 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
         if (methodCallRange) {
             vars = new jvalue[vsrc1]();
             if (methodToCallType != METHOD_STATIC) {
-                thisPtr = (jobject) GET_REGISTER(vdst);
+                thisPtr = GET_REGISTER_AS_OBJECT (vdst);
                 var_i_reg = 1;
             }
             for (; var_i_reg < vsrc1; var_i_reg++, var_i++) {
                 switch (methodToCallShorty[var_i + 1]) {
                     case 'D':
-                        vars[var_i].d = GET_REGISTER_DOUBLE(vdst + var_i_reg);
-                        var_i_reg++;
-                        break;
-
                     case 'J':
                         vars[var_i].j = GET_REGISTER_WIDE(vdst + var_i_reg);
                         var_i_reg++;
                         break;
 
-                    case '[':
-                        while (methodToCallShorty[var_i + 1]) {
-                            var_i++;
-                        }
-                        // not break;
+                    case 'L':
+                        vars[var_i].l = GET_REGISTER_AS_OBJECT(vdst + var_i_reg);
+                        break;
+
                     default:
                         memcpy(vars + var_i, &(GET_REGISTER(vdst + var_i_reg)), sizeof(u4));
                         break;
@@ -2015,29 +1654,24 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
             // overall.  Seems to be a teensy bit faster.
             assert((vdst >> 16) == 0);  // 16 bits -or- high 16 bits clear
             if (methodToCallType != METHOD_STATIC) {
-                thisPtr = (jobject) GET_REGISTER(vdst & 0x0f);
+                thisPtr = GET_REGISTER_AS_OBJECT(vdst & 0x0f);
+
                 var_i_reg = 1;
                 vdst >>= 4;
             }
             for (; var_i_reg < count && var_i_reg < 4; var_i_reg++, var_i++, vdst >>= 4) {
                 switch (methodToCallShorty[var_i + 1]) {
                     case 'D':
-                        vars[var_i].d = GET_REGISTER_DOUBLE(vdst & 0x0f);
-                        vdst >>= 4;
-                        var_i_reg++;
-                        break;
-
                     case 'J':
                         vars[var_i].j = GET_REGISTER_WIDE(vdst & 0x0f);
                         vdst >>= 4;
                         var_i_reg++;
                         break;
 
-                    case '[':
-                        while (methodToCallShorty[var_i + 1]) {
-                            var_i++;
-                        }
-                        // not break;
+                    case 'L':
+                        vars[var_i].l = GET_REGISTER_AS_OBJECT(vdst & 0x0f);
+                        break;
+
                     default:
                         memcpy(vars + var_i, &(GET_REGISTER(vdst & 0x0f)), sizeof(u4));
                         break;
@@ -2098,7 +1732,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
                     break;
             }
         } else if (methodToCallType == METHOD_SUPER) {
-            if (!checkForNull(thisPtr)) {
+            if (!                    checkForNull(thisPtr)                    ) {
                 GOTO_bail();
             }
 
@@ -2151,7 +1785,8 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
 
                 case 'V':
                     (*env).CallNonvirtualVoidMethodA(thisPtr, methodToCallClazz, methodToCall,
-                                                     vars);
+                                                     vars
+                    );
                     break;
 
                 default:
@@ -2212,9 +1847,12 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
                     break;
             }
         }
-        // debug print invoke method
-//        debugInvokeMethod(methodToCall, retval, vars);
-        delete[]vars;
+// debug print invoke method
+#if defined(SHELL_LOG)
+        debugInvokeMethod(methodToCall, retval, vars);
+#endif
+
+        delete[] vars;
 
         if ((*env).ExceptionCheck()) {
             GOTO_exceptionThrown();
@@ -2223,7 +1861,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
     }
     GOTO_TARGET_END
 
-/*
+    /*
      * Jump here when the code throws an exception.
      *
      * By the time we get here, the Throwable has been created and the stack
@@ -2237,8 +1875,6 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, 
         curException = (*env).ExceptionOccurred();
         assert(curException != nullptr);
         (*env).ExceptionClear();
-//        LOG_D("Handling exception %s at %s",
-//             getClassObjectByJObject(curException)->descriptor, curMethod->name);
 
         /*
          * We need to unroll to the catch block or the nearest "break"
@@ -2273,11 +1909,12 @@ dvmCallMethod(JNIEnv *env, jobject instance, const VmMethod *method, jvalue *pRe
     int verifyCount = 0;
     const char *desc = &(dexStringById(method->dexFile,
                                        method->protoId->shortyIdx)[1]); // [0] is the return type.
-    u4 *reg = (u4 *) malloc(sizeof(u4) * method->code->registersSize);
-    u4 *ins = reg + (method->code->registersSize - method->code->insSize);
+    jvalue *reg = new jvalue[method->code->registersSize]();
+    jvalue *ins = reg + (method->code->registersSize - method->code->insSize);
 
     if (!dvmIsStaticMethod(method->accessFlags)) {
-        *ins++ = (u4) instance;
+        ins->l = instance;
+        ins++;
         verifyCount++;
     }
 
@@ -2287,29 +1924,22 @@ dvmCallMethod(JNIEnv *env, jobject instance, const VmMethod *method, jvalue *pRe
         switch (*desc++) {
             case 'D':
             case 'J': {
-                u8 val = va_arg(args, u8);
-                memcpy(ins, &val, 8);       // EABI prevents direct store
+                ins->j = va_arg(args, jlong);
                 ins += 2;
                 verifyCount += 2;
                 break;
             }
-            case 'F': {
-                /* floats were normalized to doubles; convert back */
-                float f = (float) va_arg(args, double);
-                *ins++ = dvmFloatToU4(f);
-                verifyCount++;
-                break;
-            }
+
             case 'L': {     /* 'shorty' descr uses L for all refs, incl array */
-                void *arg = va_arg(args, void *);
-                auto argObj = reinterpret_cast<jobject>(arg);
-                *ins++ = (u4) argObj;
+                ins->l = va_arg(args, jobject);
+                ins++;
                 verifyCount++;
                 break;
             }
             default: {
                 /* Z B C S I -- all passed as 32-bit integers */
-                *ins++ = va_arg(args, u4);
+                ins->i = va_arg(args, jint);
+                ins++;
                 verifyCount++;
                 break;
             }
@@ -2319,7 +1949,8 @@ dvmCallMethod(JNIEnv *env, jobject instance, const VmMethod *method, jvalue *pRe
 
     if (verifyCount != method->code->insSize) {
         LOG_E("desc: %s", dexStringById(method->dexFile, method->protoId->shortyIdx));
-        LOG_E("Got vfycount=%d insSize=%d for %s", verifyCount, method->code->insSize, method->name);
+        LOG_E("Got vfycount=%d insSize=%d for %s", verifyCount, method->code->insSize,
+              method->name);
         GOTO_bail();
     }
 
@@ -2328,15 +1959,6 @@ dvmCallMethod(JNIEnv *env, jobject instance, const VmMethod *method, jvalue *pRe
 
     bail:
     free(reg);
-}
-
-inline u4 dvmFloatToU4(float val) {
-    union {
-        float in;
-        u4 out;
-    } conV;
-    conV.in = val;
-    return conV.out;
 }
 
 void dvmThrowArithmeticException(const char *msg) {
@@ -2359,7 +1981,7 @@ jstring dvmResolveString(const VmMethod *method, u4 stringIdx) {
     const DexStringId *pStringId = dexGetStringId(pDexFile, stringIdx);
     const char *stringData = dexGetStringData(pDexFile, pStringId);
 
-//    LOG_D("+++ resolving string=%s, referrer is %s", stringData, method->clazzDescriptor);
+    LOG_D("+++ resolving string=%s, referrer is %s", stringData, method->clazzDescriptor);
     return (*env).NewStringUTF(stringData);
 }
 
@@ -2383,37 +2005,23 @@ void dvmThrowNegativeArraySizeException(s4 size) {
     sprintf(msgBuf, "%d", size);
     dvmThrowNew("java/lang/NegativeArraySizeException", msgBuf);
 }
-//
-//bool dvmIsArrayClass(const jclass arrayClazz) {
-//    string clazzName = getClassNameByJClass(arrayClazz);
-//    auto len = clazzName.size();
-//    return len - 2 >= 0 && clazzName[len - 2] == '[' && clazzName[len - 1] == ']';
-//}
-
-//string getClassNameByJClass(jclass clazz) {
-//    return getClassObjectByJClass(clazz)->descriptor;
-//}
 
 jclass dvmResolveClass(const VmMethod *method, u4 classIdx, string *clazzNameString) {
     const DexFile *pDexFile = method->dexFile;
-    const DexTypeId *pTypeId = dexGetTypeId(pDexFile, classIdx);
-    const DexStringId *pStringId = dexGetStringId(pDexFile, pTypeId->descriptorIdx);
-    string tmp = dexGetStringData(pDexFile, pStringId);
+    string tmp = dexStringByTypeIdx(pDexFile, classIdx);
     auto tmpLen = tmp.size();
     if (tmpLen > 0 && tmp[0] == 'L') {
         tmp = tmp.substr(1, tmpLen - 2);
+        LOG_E("tmp: %s", tmp.c_str());
     }
     if (clazzNameString != nullptr) {
         *clazzNameString = tmp;
     }
-//    LOG_D("--- resolving class %s (idx=%u referrer=%s)", tmp.data(), classIdx,
-//         method->clazzDescriptor);
+    LOG_D("--- resolving class %s (idx=%u referrer=%s)", tmp.data(), classIdx,
+          method->clazzDescriptor);
     return (*env).FindClass(tmp.data());
 }
 
-//bool dvmIsArrayClass(const string clazzName) {
-//    return clazzName.size() > 0 && clazzName[0] == '[';
-//}
 
 jmethodID dvmResolveMethod(const VmMethod *method, u4 methodIdx, MethodType methodType,
                            jclass *methodToCallClazz) {
@@ -2425,7 +2033,7 @@ jmethodID dvmResolveMethod(const VmMethod *method, u4 methodIdx, MethodType meth
     }
     *methodToCallClazz = resClass;
     const char *name = dexStringById(pDexFile, pMethodId->nameIdx);
-//    LOG_D("--- resolving method=%s (idx=%u referrer=%s)", name, methodIdx, method->clazzDescriptor);
+    LOG_D("--- resolving method=%s (idx=%u referrer=%s)", name, methodIdx, method->clazzDescriptor);
     string sign;
     dvmResolveMethodSign(method, pMethodId, &sign);
     if (methodType == METHOD_STATIC) {
@@ -2434,33 +2042,9 @@ jmethodID dvmResolveMethod(const VmMethod *method, u4 methodIdx, MethodType meth
     return (*env).GetMethodID(resClass, name, sign.data());
 }
 
-void dvmResolveMethodSign(const VmMethod *method, const DexMethodId *pMethodId,
-                          string *methodSign) {
-    const DexFile *pDexFile = method->dexFile;
-    *methodSign = "(";
-    const DexProtoId *pProtoId = dexGetProtoId(pDexFile, pMethodId->protoIdx);
-    const DexTypeList *pTypeList = dexGetProtoParameters(pDexFile, pProtoId);
-    const DexTypeItem *pDexTypeItem = nullptr;
-    const DexTypeId *pTypeId = nullptr;
-    const DexStringId *pDexStringId = nullptr;
-    if (pTypeList != nullptr) {
-        for (u4 i = 0; i < pTypeList->size; i++) {
-            pDexTypeItem = dexGetTypeItem(pTypeList, i);
-            pTypeId = dexGetTypeId(pDexFile, pDexTypeItem->typeIdx);
-            pDexStringId = dexGetStringId(pDexFile, pTypeId->descriptorIdx);
-            *methodSign += dexGetStringData(pDexFile, pDexStringId);
-        }
-    }
-    *methodSign += ")";
-    pTypeId = dexGetTypeId(pDexFile, pProtoId->returnTypeIdx);
-    pDexStringId = dexGetStringId(pDexFile, pTypeId->descriptorIdx);
-    const char *returnDescriptor = dexGetStringData(pDexFile, pDexStringId);
-    *methodSign += returnDescriptor;
-
-    pTypeId = dexGetTypeId(pDexFile, pMethodId->classIdx);
-    pDexStringId = dexGetStringId(pDexFile, pTypeId->descriptorIdx);
-    const char *clazzName = dexGetStringData(pDexFile, pDexStringId);
-//    LOG_D("--- resolving method sign %s (clazz=%s)", methodSign->data(), clazzName);
+void
+dvmResolveMethodSign(const VmMethod *method, const DexMethodId *pMethodId, string *methodSign) {
+    dvmResolveMethodSign(method, dexGetProtoId(method->dexFile, pMethodId->protoIdx), methodSign);
 }
 
 bool checkForNull(jobject obj) {
@@ -2477,8 +2061,8 @@ jarray dvmAllocArrayByClass(const s4 length, const VmMethod *method, u4 classIdx
     const DexTypeId *pTypeId = dexGetTypeId(pDexFile, classIdx);
     const DexStringId *pStringId = dexGetStringId(pDexFile, pTypeId->descriptorIdx);
     string tmp = dexGetStringData(pDexFile, pStringId);
-//    LOG_D("--- resolving class %s (idx=%u referrer=%s)", tmp.data(), classIdx,
-//         method->clazzDescriptor);
+    LOG_D("--- resolving class %s (idx=%u referrer=%s)", tmp.data(), classIdx,
+          method->clazzDescriptor);
 
     /* must be array class */
     assert(tmp[0] == '[');
@@ -2537,8 +2121,6 @@ bool dvmInterpretHandleFillArrayData(jarray arrayObj, const u2 *arrayData) {
         return false;
     }
 
-//    ClassObject *pClassObject = getClassObjectByJObject(arrayObj);
-//    assert(!IS_CLASS_FLAG_SET(pClassObject, CLASS_ISOBJECTARRAY));
     /*
      * Array data table format:
      *  ushort ident = 0x0300   magic value
@@ -2555,7 +2137,6 @@ bool dvmInterpretHandleFillArrayData(jarray arrayObj, const u2 *arrayData) {
         return false;
     }
 
-//    u2 width = arrayData[1];
     u4 size = arrayData[2] | (((u4) arrayData[3]) << 16);
     if (size > (*env).GetArrayLength(arrayObj)) {
         dvmThrowArrayIndexOutOfBoundsException((*env).GetArrayLength(arrayObj), size);
@@ -2652,8 +2233,7 @@ s4 dvmInterpretHandlePackedSwitch(const u2 *switchData, s4 testVal) {
 
     int index = testVal - firstKey;
     if (index < 0 || index >= size) {
-        LOG_E("Value %d not found in switch (%d-%d)",
-             testVal, firstKey, firstKey + size - 1);
+        LOG_E("Value %d not found in switch (%d-%d)", testVal, firstKey, firstKey + size - 1);
         return kInstrLen;
     }
 
@@ -2661,12 +2241,8 @@ s4 dvmInterpretHandlePackedSwitch(const u2 *switchData, s4 testVal) {
      * we can treat them as a native int array.
      */
     const s4 *entries = (const s4 *) switchData;
-    assert(((u4) entries & 0x3) == 0);
-
+    assert(((u8) entries & 0x3) == 0);
     assert(index >= 0 && index < size);
-//    LOG_D("Value %d found in slot %d (goto 0x%02x)",
-//         testVal, index,
-//         s4FromSwitchData(&entries[index]));
     return s4FromSwitchData(&entries[index]);
 }
 
@@ -2699,13 +2275,13 @@ s4 dvmInterpretHandleSparseSwitch(const u2 *switchData, s4 testVal) {
      * we can treat them as a native int array.
      */
     keys = (const s4 *) switchData;
-    assert(((u4) keys & 0x3) == 0);
+    assert(((u8) keys & 0x3) == 0);
 
     /* The entries are guaranteed to be aligned on a 32-bit boundary;
      * we can treat them as a native int array.
      */
     entries = keys + size;
-    assert(((u4) entries & 0x3) == 0);
+    assert(((u8) entries & 0x3) == 0);
 
     /*
      * Binary-search through the array of keys, which are guaranteed to
@@ -2722,8 +2298,6 @@ s4 dvmInterpretHandleSparseSwitch(const u2 *switchData, s4 testVal) {
         } else if (testVal > foundVal) {
             lo = mid + 1;
         } else {
-//            LOG_D("Value %d found in entry %d (goto 0x%02x)",
-//                 testVal, mid, s4FromSwitchData(&entries[mid]));
             return s4FromSwitchData(&entries[mid]);
         }
     }
@@ -2754,7 +2328,7 @@ void dvmThrowArrayStoreExceptionIncompatibleElement(const jobject obj, const job
 bool dvmResolveField(const VmMethod *method, u4 ifieldIdx, jobject obj, s8 *res,
                      const char **ppName) {
     const DexFile *pDexFile = method->dexFile;
-//    LOG_D("--- resolving field %u (referrer=%s)", ifieldIdx, method->clazzDescriptor);
+    LOG_D("--- resolving field %u (referrer=%s)", ifieldIdx, method->clazzDescriptor);
     const DexFieldId *pFieldId = dexGetFieldId(pDexFile, ifieldIdx);
     jclass resClass = dvmResolveClass(method, pFieldId->classIdx);
     if (resClass == nullptr) {
@@ -2844,7 +2418,7 @@ bool dvmResolveField(const VmMethod *method, u4 ifieldIdx, jobject obj, s8 *res,
 bool dvmResolveSetField(const VmMethod *method, u4 ifieldIdx, jobject obj, u8 res,
                         const char **ppName) {
     const DexFile *pDexFile = method->dexFile;
-//    LOG_D("--- resolving field %u (referrer=%s)", ifieldIdx, method->clazzDescriptor);
+    LOG_D("--- resolving field %u (referrer=%s)", ifieldIdx, method->clazzDescriptor);
     const DexFieldId *pFieldId = dexGetFieldId(pDexFile, ifieldIdx);
     jclass resClass = dvmResolveClass(method, pFieldId->classIdx);
     if (resClass == nullptr) {
@@ -2972,7 +2546,7 @@ void debugInvokeMethod(jmethodID jniMethod, const jvalue retVal, const jvalue *v
             break;
 
         case 'J':
-            LOG_D("return value (long): %lld", retVal.j);
+            LOG_D("return value (long): %ld", retVal.j);
             break;
 
         case 'D':
@@ -3021,7 +2595,7 @@ void debugInvokeMethod(jmethodID jniMethod, const jvalue retVal, const jvalue *v
                 break;
 
             case 'J':
-                LOG_D("var(0x%02x) value (long): %lld", var_i, vars[var_i].j);
+                LOG_D("var(0x%02x) value (long): %ld", var_i, vars[var_i].j);
                 break;
 
             case 'D':
@@ -3283,7 +2857,7 @@ string methodNameFromIndex(const VmMethod *method, int ref, VerifyErrorRefType r
 
     if ((flags & kThrowShow_accessFromClass) != 0) {
         string desc;
-        dvmResolveMethodSign(method->dexFile, method->protoId, &desc);
+        dvmResolveMethodSign(method, method->protoId, &desc);
         string result;
         result += "tried to access method ";
         result += dotName + "." + methodName + ":" + desc;
@@ -3294,7 +2868,8 @@ string methodNameFromIndex(const VmMethod *method, int ref, VerifyErrorRefType r
 }
 
 void
-dvmResolveMethodSign(const DexFile *pDexFile, const DexProtoId *pDexProtoId, string *methodSign) {
+dvmResolveMethodSign(const VmMethod *method, const DexProtoId *pDexProtoId, string *methodSign) {
+    const DexFile *pDexFile = method->dexFile;
     *methodSign = "(";
     const DexTypeList *pTypeList = dexGetProtoParameters(pDexFile, pDexProtoId);
     const DexTypeItem *pDexTypeItem = nullptr;
@@ -3313,10 +2888,11 @@ dvmResolveMethodSign(const DexFile *pDexFile, const DexProtoId *pDexProtoId, str
     pDexStringId = dexGetStringId(pDexFile, pTypeId->descriptorIdx);
     const char *returnDescriptor = dexGetStringData(pDexFile, pDexStringId);
     *methodSign += returnDescriptor;
+    LOG_D("--- resolving method sign %s", methodSign->data());
 }
 
 const VmMethod *initVmMethod(jmethodID jniMethod) {
-    VmMethod *method = (VmMethod *) initVmMethodNoCode(jniMethod);
+    VmMethod *method = (VmMethod *) initVmMethodNoCode(jniMethod, nullptr);
     method->code = getCodeItem(method);
     return method;
 }
@@ -3324,7 +2900,7 @@ const VmMethod *initVmMethod(jmethodID jniMethod) {
 const CodeItemData *getCodeItem(const VmMethod *method) {
     // (sign + method_name + class_name).reverse
     string key;
-    dvmResolveMethodSign(method->dexFile, method->protoId, &key);
+    dvmResolveMethodSign(method, method->protoId, &key);
     key += method->name;
     key += method->clazzDescriptor;
     reverse(key.begin(), key.end());
@@ -3334,10 +2910,7 @@ const CodeItemData *getCodeItem(const VmMethod *method) {
 
 const DexFile *initDexFileInArt(const uint8_t *buf, size_t size) {
     auto *pDexHeader = (DexHeader *) buf;
-//    for (int i = 0; i < 8; i++) {
-//        LOG_D("dex file buf[%d]: %c", i, buf[i]);
-//    }
-
+//    LOG_D("dex marge: %s", buf);
     auto *pDexFile = new DexFile();
     pDexFile->baseAddr = buf;
     pDexFile->pHeader = pDexHeader;
@@ -3353,58 +2926,74 @@ const DexFile *initDexFileInArt(const uint8_t *buf, size_t size) {
     pDexFile->pLinkData = (const DexLink *) (pDexFile->baseAddr + pDexHeader->linkOff);
     // check dex file size
     if (pDexHeader->fileSize != size) {
-        LOG_E("ERROR: stored file size (%d) != expected (%d)", pDexHeader->fileSize, size);
+        LOG_E("ERROR: stored file size (%d) != expected (%ld)", pDexHeader->fileSize, size);
     }
     return pDexFile;
 }
 
-const VmMethod *initVmMethodNoCode(jmethodID jniMethod) {
-    auto *method = new VmMethod();
-    if (isArtVm(env)) {
-        const ArtMethod_21_22 *artMethod_21_22 = nullptr;
-        const ArtMethod_23 *artMethod_23 = nullptr;
+VmMethod *initVmMethodNoCode(jmethodID jniMethod, VmMethod *pVmMethod) {
+    VmMethod *method;
+    if (pVmMethod == nullptr) {
+        method = new VmMethod();
+    } else {
+        method = pVmMethod;
+    }
 
-        const ArtClass *artClass = nullptr;
-        const ArtDexCache *artDexCache = nullptr;
-        const ArtDexFile *artDexFile = nullptr;
+    if (isArtVm(env)) {
+        void *artMethod = jniMethod;
+        ArtClass *artClass = nullptr;
+        void *artDexCache = nullptr;
+        ArtDexFile *artDexFile = nullptr;
         const DexMethodId *pDexMethodId = nullptr;
 
         switch (android_get_device_api_level()) {
             case __ANDROID_API_L__:
             case __ANDROID_API_L_MR1__:
-                artMethod_21_22 = reinterpret_cast<const ArtMethod_21_22 *>(jniMethod);
-                artClass = reinterpret_cast<const ArtClass *>(artMethod_21_22->declaring_class);
-                artDexCache = reinterpret_cast<const ArtDexCache *>(artClass->dex_cache);
-                artDexFile = reinterpret_cast<const ArtDexFile *>(artDexCache->dex_file);
+                artClass = (ArtClass *)(uint64_t) ((ArtMethod_21_22 *) artMethod)->declaring_class;
+                artDexCache = (void *)(uint64_t) artClass->dex_cache;
+                artDexFile = (ArtDexFile *) ((ArtDexCache_21_23 *) artDexCache)->dex_file;
                 method->dexFile = initDexFileInArt(artDexFile->begin, artDexFile->size);
-                pDexMethodId = dexGetMethodId(method->dexFile, artMethod_21_22->dex_method_index);
+                pDexMethodId = dexGetMethodId(method->dexFile,
+                                              ((ArtMethod_21_22 *) artMethod)->dex_method_index);
                 method->protoId = dexGetProtoId(method->dexFile, pDexMethodId->protoIdx);
-                method->accessFlags = artMethod_21_22->access_flags;
+                method->accessFlags = ((ArtMethod_21_22 *) artMethod)->access_flags;
                 method->clazzDescriptor = dexStringByTypeIdx(method->dexFile,
                                                              pDexMethodId->classIdx);
                 method->name = dexStringById(method->dexFile, pDexMethodId->nameIdx);
                 break;
 
             case __ANDROID_API_M__:
-                artMethod_23 = reinterpret_cast<const ArtMethod_23 *>(jniMethod);
-                artClass = reinterpret_cast<const ArtClass *>(artMethod_23->declaring_class);
-                artDexCache = reinterpret_cast<const ArtDexCache *>(artClass->dex_cache);
-                artDexFile = reinterpret_cast<const ArtDexFile *>(artDexCache->dex_file);
+                artClass = (ArtClass *)(uint64_t) ((ArtMethod_23 *) artMethod)->declaring_class;
+                artDexCache = (void *)(uint64_t) artClass->dex_cache;
+                artDexFile = (ArtDexFile *) ((ArtDexCache_21_23 *) artDexCache)->dex_file;
                 method->dexFile = initDexFileInArt(artDexFile->begin, artDexFile->size);
-                pDexMethodId = dexGetMethodId(method->dexFile, artMethod_23->dex_method_index);
+                pDexMethodId = dexGetMethodId(method->dexFile,
+                                              ((ArtMethod_23 *) artMethod)->dex_method_index);
                 method->protoId = dexGetProtoId(method->dexFile, pDexMethodId->protoIdx);
-                method->accessFlags = artMethod_23->access_flags;
+                method->accessFlags = ((ArtMethod_23 *) artMethod)->access_flags;
                 method->clazzDescriptor = dexStringByTypeIdx(method->dexFile,
                                                              pDexMethodId->classIdx);
                 method->name = dexStringById(method->dexFile, pDexMethodId->nameIdx);
                 break;
 
+            case __ANDROID_API_O__:
+            case __ANDROID_API_O_MR1__:
+                artClass = (ArtClass *) (uint64_t)((ArtMethod_26_27 *) artMethod)->declaring_class;
+                artDexCache = (void *)(uint64_t) artClass->dex_cache;
+                artDexFile = (ArtDexFile *) ((ArtDexCache_26_27 *) artDexCache)->dex_file;
+                method->dexFile = initDexFileInArt(artDexFile->begin, artDexFile->size);
+                pDexMethodId = dexGetMethodId(method->dexFile,
+                                              ((ArtMethod_26_27 *) artMethod)->dex_method_index);
+                method->protoId = dexGetProtoId(method->dexFile, pDexMethodId->protoIdx);
+                method->accessFlags = ((ArtMethod_26_27 *) artMethod)->access_flags;
+                method->clazzDescriptor = dexStringByTypeIdx(method->dexFile,
+                                                             pDexMethodId->classIdx);
+                method->name = dexStringById(method->dexFile, pDexMethodId->nameIdx);
+                break;
             default:
+                LOG_E("error android api level: %d", android_get_device_api_level());
                 assert(false);
         }
-//        LOG_D("%s", method->clazzDescriptor);
-//        LOG_D("%s", method->name);
-
     } else {
         const auto *dvmMethod = reinterpret_cast<const Method *>(jniMethod);
         method->dexFile = dvmMethod->clazz->pDvmDex->pDexFile;

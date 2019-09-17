@@ -29,6 +29,26 @@ bool HookNativeInline(const char *soPath, const char *signature, void *my_func, 
     return true;
 }
 
+bool HookNativeInlineAnonymous(const char *soPath, uint64_t addr, void *my_func, void **ori_func) {
+    LOG_D("start HookNativeInline...");
+    auto *lib = AKGetImageByName(soPath);
+    if (lib == nullptr) {
+        LOG_E("can't find so by the path: %s", soPath);
+        return false;
+    }
+    LOG_D("lib base address: %p", AKGetBaseAddress(lib));
+
+    auto *symbol = AKFindAnonymity(lib, addr | 0x1);
+    if (symbol == nullptr) {
+        LOG_E("can't find the symbol at addr: 0x%016lx", addr);
+        AKCloseImage(lib);
+        return false;
+    }
+    AKHookFunction(symbol, my_func, ori_func);
+    AKCloseImage(lib);
+    return true;
+}
+
 bool
 HookJava(JNIEnv *env, const char *clazzPath, const char *methodName, const char *methodSignature,
          const void *my_func, jmethodID *ori_func) {

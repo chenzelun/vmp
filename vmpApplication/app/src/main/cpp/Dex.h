@@ -32,12 +32,13 @@ struct DexFileHelper {
     string fakeClassesDexName;
 
     char *dexBuf;
-    size_t dexLen;
+    uint32_t dexLen;
 
     const char *codeItemBuf;
-    size_t codeItemLen;
+    uint32_t codeItemLen;
     map<string, CodeItemData *> codeItem;
 };
+
 
 void initDexFileHelper(DexFileHelper **ppDexFucker, const ConfigFileProxy *pConfigFileProxy);
 
@@ -70,28 +71,14 @@ vector<void *>
 myOpenDexFilesFromOat_23(void *thiz, const char *dex_location, const char *oat_location,
                          vector<string> *error_msgs);
 
-
 bool hookOpenDexFilesFromOat();
 
 bool
 myDexFileOpen_21_23(const char *filename, const char *location, string *error_msg,
                     vector<void *> *dex_files);
 
-bool myDexFileOpen_26_27(const char *filename, const string &location, bool verify_checksum,
-                         string *error_msg, vector<void *> *dex_files);
-
 bool hookDexFileOpen();
 
-void *myDexFileOpenFile_21_22(int fd, const char *location, bool verify, string *error_msg);
-
-void *
-myDexFileOpenFile_23(void *thiz, int fd, const char *location, bool verify, std::string *error_msg);
-
-void *
-myDexFileOpenFile_26_27(void *thiz, int fd, const string &location, bool verify,
-                        bool verify_checksum, string *error_msg);
-
-bool hookDexFileOpenFile();
 
 /*
  * Reads a signed LEB128 value, updating the given pointer to point
@@ -319,7 +306,7 @@ inline const char *dexGetSourceFile(
 }
 
 /* get the size, in bytes, of a DexCode */
-size_t dexGetDexCodeSize(const DexCode *pCode);
+uint32_t dexGetDexCodeSize(const DexCode *pCode);
 
 /* Get the list of "tries" for the given DexCode. */
 inline const DexTry *dexGetTries(const DexCode *pCode) {

@@ -227,6 +227,14 @@ class ABCItem(metaclass=ABCMeta):
         """
         pass
 
+    @staticmethod
+    def aligned(buf: bytearray, offset: Index, aligned: int):
+        size = aligned - (offset.index & (aligned - 1))
+        if size == aligned:
+            return
+        buf.extend(b'\x00' * size)
+        offset.index += size
+
 
 class EncodedValue(ABCItem):
     def parse(self, buf: bytes, offset: Index, **kwargs):
@@ -513,6 +521,9 @@ class ListPool:
         return len(self.pool)
 
     def write(self, buf: bytearray, offset: Index, **kwargs):
+        if 'aligned' in kwargs:
+            self.aligned(buf, offset, kwargs['aligned'])
+
         self.map_list_item.offset = offset.index
         self.map_list_item.size = len(self.pool)
         offset.index -= len(buf)
@@ -520,6 +531,14 @@ class ListPool:
             buf.extend(item.to_bytes())
         offset.index += len(buf)
         return self.map_list_item
+
+    @staticmethod
+    def aligned(buf: bytearray, offset: Index, aligned: int):
+        size = aligned - (offset.index & (aligned - 1))
+        if size == aligned:
+            return
+        buf.extend(b'\x00' * size)
+        offset.index += size
 
 
 class DictPool:
@@ -546,11 +565,22 @@ class DictPool:
         return len(self.pool)
 
     def write(self, buf: bytearray, offset: Index, **kwargs):
+        if 'aligned' in kwargs:
+            self.aligned(buf, offset, kwargs['aligned'])
+
         self.map_list_item.offset = offset.index
         self.map_list_item.size = len(self.pool)
         for item in self.pool.values():
             buf.extend(item.to_bytes(offset))
         return self.map_list_item
+
+    @staticmethod
+    def aligned(buf: bytearray, offset: Index, aligned: int):
+        size = aligned - (offset.index & (aligned - 1))
+        if size == aligned:
+            return
+        buf.extend(b'\x00' * size)
+        offset.index += size
 
 
 class MapList(DictPool):
@@ -575,6 +605,7 @@ class MapList(DictPool):
         self.pool[key.value] = value
 
     def write(self, buf: bytearray, offset: Index, **kwargs):
+        self.aligned(buf, offset, 4)
         self.map_list_item.offset = offset.index
         self.map_list_item.size = 1
         offset.index -= len(buf)
@@ -677,6 +708,7 @@ class StringId(ListPool):
         if data_buf is None or data_offset is None:
             raise RuntimeError('data_buf is None or data_offset is None')
 
+        self.aligned(buf, offset, 4)
         self.map_list_item.offset = offset.index
         self.map_list_item_string_data.offset = data_offset.index
         offset.index -= len(buf)
@@ -727,9 +759,7 @@ class TypeListItem(ABCItem):
             r.extend(pack('<H', idx))
 
         offset.index += len(r)
-        while offset.index & 0x03:
-            offset.index += 1
-            r.append(0)
+        self.aligned(r, offset, 4)
         return bytes(r)
 
     def __init__(self):
@@ -960,9 +990,7 @@ class CodeItem(ABCItem):
             r.extend(self.handlers.to_bytes())
 
         offset.index += len(r)
-        while offset.index & 0x03:
-            offset.index += 1
-            r.append(0)
+        self.aligned(r, offset, 4)
         return bytes(r)
 
     def __init__(self):
@@ -1148,6 +1176,7 @@ class AnnotationSetItem(ABCItem):
                 r.extend(pack('<I', item.dex_offset))
 
         offset.index += len(r)
+        self.aligned(r, offset, 4)
         return bytes(r)
 
     def __init__(self):
@@ -1195,6 +1224,7 @@ class AnnotationSetRefItem(ABCItem):
                 r.extend(pack('<I', item.dex_offset if item else 0))
 
         offset.index += len(r)
+        self.aligned(r, offset, 4)
         return bytes(r)
 
     def __init__(self):
@@ -1316,6 +1346,7 @@ class AnnotationsDirectoryItem(ABCItem):
             r.extend(parameter.to_bytes())
 
         offset.index += len(r)
+        self.aligned(r, offset, 4)
         return bytes(r)
 
     def __init__(self):
@@ -1506,6 +1537,9 @@ class DexHeader:
                         self.data_size,
                         self.data_off))
         offset.index += len(buf)
+
+        self.map_list_item.offset = 0
+        self.map_list_item.size = 1
         return self.map_list_item
 
     def update_header(self, buf: bytearray, map_list: MapList):
@@ -1625,22 +1659,23 @@ class DexFile:
         self.map_list[MapListItemType.TYPE_STRING_ID_ITEM], \
         self.map_list[MapListItemType.TYPE_STRING_DATA_ITEM] \
             = self.string_id.write(index_buf, index_offset, data_buf, data_offset)
-        self.map_list[MapListItemType.TYPE_TYPE_ID_ITEM] = self.type_id.write(index_buf, index_offset)
-        self.map_list[MapListItemType.TYPE_TYPE_LIST] = self.type_list.write(data_buf, data_offset)
-        self.map_list[MapListItemType.TYPE_PROTO_ID_ITEM] = self.proto_id.write(index_buf, index_offset)
-        self.map_list[MapListItemType.TYPE_FIELD_ID_ITEM] = self.field_id.write(index_buf, index_offset)
-        self.map_list[MapListItemType.TYPE_METHOD_ID_ITEM] = self.method_id.write(index_buf, index_offset)
+        self.map_list[MapListItemType.TYPE_TYPE_ID_ITEM] = self.type_id.write(index_buf, index_offset, aligned=4)
+        self.map_list[MapListItemType.TYPE_TYPE_LIST] = self.type_list.write(data_buf, data_offset, aligned=4)
+        self.map_list[MapListItemType.TYPE_PROTO_ID_ITEM] = self.proto_id.write(index_buf, index_offset, aligned=4)
+        self.map_list[MapListItemType.TYPE_FIELD_ID_ITEM] = self.field_id.write(index_buf, index_offset, aligned=4)
+        self.map_list[MapListItemType.TYPE_METHOD_ID_ITEM] = self.method_id.write(index_buf, index_offset, aligned=4)
         self.map_list[MapListItemType.TYPE_ANNOTATION_ITEM] = self.annotation.write(data_buf, data_offset)
-        self.map_list[MapListItemType.TYPE_ANNOTATION_SET_ITEM] = self.annotation_set.write(data_buf, data_offset)
+        self.map_list[MapListItemType.TYPE_ANNOTATION_SET_ITEM] \
+            = self.annotation_set.write(data_buf, data_offset, aligned=4)
         self.map_list[MapListItemType.TYPE_ANNOTATION_SET_REF_LIST] \
-            = self.annotation_set_ref.write(data_buf, data_offset)
+            = self.annotation_set_ref.write(data_buf, data_offset, aligned=4)
         self.map_list[MapListItemType.TYPE_ANNOTATIONS_DIRECTORY_ITEM] \
-            = self.annotations_directory.write(data_buf, data_offset)
+            = self.annotations_directory.write(data_buf, data_offset, aligned=4)
         self.map_list[MapListItemType.TYPE_DEBUG_INFO_ITEM] = self.debug_info.write(data_buf, data_offset)
-        self.map_list[MapListItemType.TYPE_CODE_ITEM] = self.code.write(data_buf, data_offset)
+        self.map_list[MapListItemType.TYPE_CODE_ITEM] = self.code.write(data_buf, data_offset, aligned=4)
         self.map_list[MapListItemType.TYPE_CLASS_DATA_ITEM] = self.class_data.write(data_buf, data_offset)
         self.map_list[MapListItemType.TYPE_ENCODED_ARRAY_ITEM] = self.encoded_array.write(data_buf, data_offset)
-        self.map_list[MapListItemType.TYPE_CLASS_DEF_ITEM] = self.class_def.write(index_buf, index_offset)
+        self.map_list[MapListItemType.TYPE_CLASS_DEF_ITEM] = self.class_def.write(index_buf, index_offset, aligned=4)
 
         self.map_list.write(data_buf, data_offset)
         dex_buf = index_buf + data_buf
@@ -1797,7 +1832,7 @@ class JNIFuncBuilder:
             key = bytearray(sign + method_name + class_name, encoding='ascii')
             self.log.debug('code item key0: %s', key)
             key.reverse()
-            self.log.debug(' code item key: %s', key)
+            self.log.debug('code item key : %s', key)
             key.append(0)
             key_size = len(key)
             self.log.debug('      key size: %d', key_size)
@@ -1816,13 +1851,17 @@ class JNIFuncBuilder:
 
     def generate_jni_func(self, jni_func_header_name: str):
         self.jni_func_buf = r"""
-                
+                 
+            //
+            // Created by ChenDalunlun on {today_date}.
+            //
+            
             #include "{jni_func_header_name}"
             #include "VMInterpreter.h"
             #include "Util.h"
             #include "common/Dalvik.h"
                     
-        """.format(jni_func_header_name=jni_func_header_name)
+        """.format(today_date=str(date.today()), jni_func_header_name=jni_func_header_name)
 
         self.jni_func_header_buf = r"""
             
@@ -1858,11 +1897,9 @@ class JNIFuncBuilder:
 
             param_define_jni = ''
             if proto_id.parameters:
-                param_no = 0
-                for param_type_id in proto_id.parameters.list:
+                for param_no, param_type_id in enumerate(proto_id.parameters.list):
                     param_define_jni += ', ' + JNIFuncBuilder.format_jni_type(
                         self.dex.get_string_by_type_idx(param_type_id)) + ' param{no}'.format(no=param_no)
-                param_no += 1
             func_declare = """
                 
                 extern "C"
@@ -1962,10 +1999,8 @@ class JNIFuncBuilder:
             return 'jfloat'
         elif java_type[0] == 'J':
             return 'jlong'
-        elif java_type[0] == 'L':
+        elif java_type[0] == 'L' or java_type[0] == '[':
             return 'jobject'
-        elif java_type[0] == '[':
-            return 'jarray'
         elif java_type[0] == 'V':
             return 'void'
 

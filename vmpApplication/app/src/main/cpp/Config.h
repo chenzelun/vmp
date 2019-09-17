@@ -10,6 +10,7 @@
 #include <string>
 #include <jni.h>
 #include <fstream>
+#include <cstdint>
 
 using namespace std;
 
@@ -21,29 +22,29 @@ struct ConfigFileProxy {
     string configFileName = "config.bin";
 
     string filePath;
-    size_t fileSize = 0;
+    uint32_t fileSize = 0;
 
     string srcApkApplicationName;
 
-    size_t srcClassesDexSize;
-    size_t srcClassesDexOff;
+    uint32_t srcClassesDexSize;
+    uint32_t srcClassesDexOff;
 
-    size_t srcCodeItemSize;
-    size_t srcCodeItemOff;
+    uint32_t srcCodeItemSize;
+    uint32_t srcCodeItemOff;
 
     string fakeClassesDexName;
-    size_t fakeClassesDexBufSize;
-    size_t fakeClassesDexBufOff;
+    uint32_t fakeClassesDexBufSize;
+    uint32_t fakeClassesDexBufOff;
 };
 
 void initConfigFileProxy(ConfigFileProxy **ppConfigFileProxy, JNIEnv *env);
 
 void initConfigFile();
 
-inline void readStr(ifstream &reader, size_t offset, string *pRetString, char *buf);
+inline void readStr(ifstream &reader, uint32_t offset, string *pRetString, char *buf);
 
 inline void
-readSizeAndOff(ifstream &reader, size_t offset, size_t *pRetSize, size_t *pRetOffset,
+readSizeAndOff(ifstream &reader, uint32_t offset, uint32_t *pRetSize, uint32_t *pRetOffset,
                char *buf);
 
 const string &getDataDir(JNIEnv *env);
@@ -61,14 +62,16 @@ void buildFileSystem();
 void copyFileFromAssets(JNIEnv *env, const string &configFileName, const string &dstFilePath);
 
 
-const char *getDataBuf(size_t off, size_t size);
+const char *getDataBuf(uint32_t off, uint32_t size);
 
 const char *getCodeItemBuf();
 
 const char *getClassesDexBuf();
 
-void buildFile(const string &srcPath, const string &desPath, unsigned int off, size_t length);
+void buildFile(const string &srcPath, const string &desPath, unsigned int off, uint32_t length);
 
 void buildFakeClassesDexFile(const string &path);
+
+const string getSystemLibDir();
 
 #endif //SHELLAPPLICATION_CONFIG_H

@@ -17,13 +17,13 @@ void initConfigFile() {
 
     // get config file's size
     reader.seekg(0, ios::end);
-    gConfigFileProxy->fileSize = static_cast<size_t>(reader.tellg());
+    gConfigFileProxy->fileSize = static_cast<uint32_t>(reader.tellg());
     LOG_D("filePath: %s, fileSize: %d", gConfigFileProxy->filePath.data(),
-         gConfigFileProxy->fileSize);
+          gConfigFileProxy->fileSize);
     char buf[BUFSIZ];
 
     reader.seekg(0, ios::beg);
-    size_t offset = 0;
+    uint32_t offset = 0;
 
     // read srcApkApplicationName
     readStr(reader, offset, &gConfigFileProxy->srcApkApplicationName, buf);
@@ -40,42 +40,42 @@ void initConfigFile() {
                    &gConfigFileProxy->fakeClassesDexBufOff, buf);
     offset += SIZE_OF_DOUBLE_UINT32;
     LOG_D("fakeClassesDexBufSize: %d, fakeClassesDexBufOff: %d",
-         gConfigFileProxy->fakeClassesDexBufSize, gConfigFileProxy->fakeClassesDexBufOff);
+          gConfigFileProxy->fakeClassesDexBufSize, gConfigFileProxy->fakeClassesDexBufOff);
 
     // read classes dex
     readSizeAndOff(reader, offset, &gConfigFileProxy->srcClassesDexSize,
                    &gConfigFileProxy->srcClassesDexOff, buf);
     offset += SIZE_OF_DOUBLE_UINT32;
     LOG_D("srcClassesDexSize: %d, srcClassesDexOff: %d", gConfigFileProxy->srcClassesDexSize,
-         gConfigFileProxy->srcClassesDexOff);
+          gConfigFileProxy->srcClassesDexOff);
 
     // read code item
     readSizeAndOff(reader, offset, &gConfigFileProxy->srcCodeItemSize,
                    &gConfigFileProxy->srcCodeItemOff, buf);
     LOG_D("srcCodeItemSize: %d, srcCodeItemOff: %d", gConfigFileProxy->srcCodeItemSize,
-         gConfigFileProxy->srcCodeItemOff);
+          gConfigFileProxy->srcCodeItemOff);
 
     reader.close();
     LOG_D("finish, initConfigFile()");
 }
 
-void readStr(ifstream &reader, size_t offset, string *pRetString, char *buf) {
-    size_t size;
-    size_t off;
+void readStr(ifstream &reader, uint32_t offset, string *pRetString, char *buf) {
+    uint32_t size;
+    uint32_t off;
     readSizeAndOff(reader, offset, &size, &off, buf);
     reader.seekg(off, ios::beg);
     reader.read(buf, size);
     *pRetString = buf;
 }
 
-void readSizeAndOff(ifstream &reader, size_t offset, size_t *pRetSize, size_t *pRetOffset,
+void readSizeAndOff(ifstream &reader, uint32_t offset, uint32_t *pRetSize, uint32_t *pRetOffset,
                     char *buf) {
     reader.seekg(offset, ios::beg);
     reader.read(buf, SIZE_OF_DOUBLE_UINT32);
-    *pRetSize = *(size_t *) buf;
-    *pRetOffset = *(size_t *) (buf + 4);
+    *pRetSize = *(uint32_t *) buf;
+    *pRetOffset = *(uint32_t *) (buf + 4);
     LOG_D("readSizeAndOff, offset: %d, ret_size: %d, ret_offset: %d",
-         offset, *pRetSize, *pRetOffset);
+          offset, *pRetSize, *pRetOffset);
 }
 
 const string &getBaseFilesDir(JNIEnv *env) {
@@ -194,13 +194,13 @@ void initConfigFileProxy(ConfigFileProxy **ppConfigFileProxy, JNIEnv *env) {
     LOG_D("finish, initConfigFileProxy(ConfigFileProxy **ppConfigFileProxy, JNIEnv *env)");
 }
 
-const char *getDataBuf(size_t off, size_t size) {
+const char *getDataBuf(uint32_t off, uint32_t size) {
     char *buf = new char[size]();
     ifstream reader(gConfigFileProxy->filePath, ios::binary);
     reader.seekg(off, ios::beg);
     reader.read(buf, size);
     reader.close();
-    LOG_D("getDataBuf(size_t off: %d, size_t size: %d)", off, size);
+    LOG_D("getDataBuf(uint32_t off: %d, uint32_t size: %d)", off, size);
     return buf;
 }
 
@@ -214,7 +214,7 @@ const char *getClassesDexBuf() {
     return getDataBuf(gConfigFileProxy->srcClassesDexOff, gConfigFileProxy->srcClassesDexSize);
 }
 
-void buildFile(const string &srcPath, const string &desPath, unsigned int off, size_t length) {
+void buildFile(const string &srcPath, const string &desPath, unsigned int off, uint32_t length) {
     ofstream writer(desPath, ios::binary);
     ifstream reader(srcPath, ios::binary);
     char buf[BUFSIZ];
@@ -222,7 +222,7 @@ void buildFile(const string &srcPath, const string &desPath, unsigned int off, s
     LOG_D("start write files...   %s", desPath.data());
     reader.seekg(off, ios::beg);
     while (length > 0) {
-        size_t realReadSize = length >= BUFSIZ ? BUFSIZ : length;
+        uint32_t realReadSize = length >= BUFSIZ ? BUFSIZ : length;
         length -= realReadSize;
         reader.read(buf, realReadSize);
         writer.write(buf, realReadSize);
@@ -238,5 +238,13 @@ void buildFile(const string &srcPath, const string &desPath, unsigned int off, s
 void buildFakeClassesDexFile(const string &path) {
     buildFile(gConfigFileProxy->filePath, path, gConfigFileProxy->fakeClassesDexBufOff,
               gConfigFileProxy->fakeClassesDexBufSize);
+}
+
+const string getSystemLibDir() {
+#if defined(__aarch64__)
+    return "/system/lib64";
+#else
+    return "/system/lib";
+#endif
 }
 

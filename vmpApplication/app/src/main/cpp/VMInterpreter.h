@@ -4,6 +4,7 @@
 
 #ifndef SHELLAPPLICATION_VMINTERPRETER_H
 #define SHELLAPPLICATION_VMINTERPRETER_H
+
 #include <cstdint>
 #include <jni.h>
 #include "common/Dalvik.h"
@@ -11,25 +12,25 @@
 
 struct CodeItemData;
 
-struct VmMethod{
-    const DexFile* dexFile;
-    const char* name;
-    const char* clazzDescriptor;
-    const DexProtoId* protoId;
+struct VmMethod {
+    const DexFile *dexFile;
+    const char *name;
+    const char *clazzDescriptor;
+    const DexProtoId *protoId;
     u4 accessFlags;
-    const CodeItemData* code;
+    const CodeItemData *code;
 };
 
-struct VmField{
-    const DexFile* dexFile;
-    const char* name;
-    const char* clazzDescriptor;
+struct VmField {
+    const DexFile *dexFile;
+    const char *name;
+    const char *clazzDescriptor;
     u4 accessFlags;
 };
 
 using namespace std;
 
-const DexFile* initDexFileInArt(const uint8_t *buf, size_t size);
+const DexFile *initDexFileInArt(const uint8_t *buf, size_t size);
 
 jmethodID dvmResolveMethod(const VmMethod *method, u4 methodIdx, MethodType methodType,
                            jclass *methodToCallClazz);
@@ -44,7 +45,7 @@ void
 dvmResolveMethodSign(const VmMethod *method, const DexMethodId *pMethodId, string *methodSign);
 
 void
-dvmResolveMethodSign(const DexFile *pDexFile, const DexProtoId *pDexProtoId, string *methodSign);
+dvmResolveMethodSign(const VmMethod *method, const DexProtoId *pDexProtoId, string *methodSign);
 
 inline u4 dvmFloatToU4(float val);
 
@@ -58,7 +59,8 @@ jarray dvmAllocArrayByClass(const s4 length, const VmMethod *method, u4 classIdx
 
 
 void
-dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, u4 *reg, jvalue *pResult);
+dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *reg,
+             jvalue *pResult);
 
 void
 dvmCallMethod(JNIEnv *env, jobject instance, const VmMethod *method, jvalue *pResult, ...);
@@ -81,11 +83,11 @@ void debugInvokeMethod(jmethodID jniMethod, const jvalue retVal, const jvalue *v
 
 int dvmFindCatchBlock(const VmMethod *method, size_t pcOff, jobject exception);
 
-const VmMethod * initVmMethod(jmethodID jniMethod);
+const VmMethod *initVmMethod(jmethodID jniMethod);
 
-void deleteVmMethod(const VmMethod* method);
+void deleteVmMethod(const VmMethod *method);
 
-const VmMethod* initVmMethodNoCode(jmethodID jniMethod);
+VmMethod *initVmMethodNoCode(jmethodID jniMethod, VmMethod *pVmMethod = nullptr);
 
 const CodeItemData *getCodeItem(const VmMethod *method);
 
@@ -673,60 +675,6 @@ enum Opcode {
 };
 
 
-
-
-/*
- * Configuration defines.  These affect the C implementations, i.e. the
- * portable interpreter(s) and C stubs.
- *
- * Some defines are controlled by the Makefile, e.g.:
- *   WITH_INSTR_CHECKS
- *   WITH_TRACKREF_CHECKS
- *   EASY_GDB
- *   NDEBUG
- */
-
-#define NDEBUG
-
-#ifdef WITH_INSTR_CHECKS            /* instruction-level paranoia (slow!) */
-# define CHECK_BRANCH_OFFSETS
-# define CHECK_REGISTER_INDICES
-#endif
-
-/*
- * Some architectures require 64-bit alignment for access to 64-bit data
- * types.  We can't just use pointers to copy 64-bit values out of our
- * interpreted register set, because gcc may assume the pointer target is
- * aligned and generate invalid code.
- *
- * There are two common approaches:
- *  (1) Use a union that defines a 32-bit pair and a 64-bit value.
- *  (2) Call memcpy().
- *
- * Depending upon what compiler you're using and what options are specified,
- * one may be faster than the other.  For example, the compiler might
- * convert a memcpy() of 8 bytes into a series of instructions and omit
- * the call.  The union version could cause some strange side-effects,
- * e.g. for a while ARM gcc thought it needed separate storage for each
- * inlined instance, and generated instructions to zero out ~700 bytes of
- * stack space at the top of the interpreter.
- *
- * The default is to use memcpy().  The current gcc for ARM seems to do
- * better with the union.
- */
-#if defined(__ARM_EABI__)
-# define NO_UNALIGN_64__UNION
-#endif
-/*
- * MIPS ABI requires 64-bit alignment for access to 64-bit data types.
- *
- * Use memcpy() to do the transfer
- */
-#if defined(__mips__)
-/* # define NO_UNALIGN_64__UNION */
-#endif
-
-
 //#define LOG_INSTR                   /* verbose debugging */
 /* set and adjust ANDROID_LOG_TAGS='*:i jdwp:i dalvikvm:i dalvikvmi:i' */
 
@@ -736,11 +684,10 @@ enum Opcode {
  * compared against what we have stored on the stack with EXPORT_PC to
  * help ensure that we aren't missing any export calls.
  */
-#if WITH_EXTRA_GC_CHECKS > 1
-# define EXPORT_EXTRA_PC() (self->currentPc2 = pc)
-#else
+
+
 # define EXPORT_EXTRA_PC()
-#endif
+
 
 /*
  * Adjust the program counter.  "_offset" is a signed int, in 16-bit units.
@@ -751,139 +698,121 @@ enum Opcode {
  * branch, because we do want to have to unroll the PC if there's an
  * exception.
  */
-#ifdef CHECK_BRANCH_OFFSETS
-# define ADJUST_PC(_offset) do {                                            \
-        int myoff = _offset;        /* deref only once */                   \
-        if (pc + myoff < curMethod->insns ||                                \
-            pc + myoff >= curMethod->insns + dvmGetMethodInsnsSize(curMethod)) \
-        {                                                                   \
-            char* desc;                                                     \
-            desc = dexProtoCopyMethodDescriptor(&curMethod->prototype);     \
-            ALOGE("Invalid branch %d at 0x%04x in %s.%s %s",                 \
-                myoff, (int) (pc - curMethod->insns),                       \
-                curMethod->clazz->descriptor, curMethod->name, desc);       \
-            free(desc);                                                     \
-            dvmAbort();                                                     \
-        }                                                                   \
-        pc += myoff;                                                        \
-        EXPORT_EXTRA_PC();                                                  \
-    } while (false)
-#else
 // ok
 # define ADJUST_PC(_offset) do {                                            \
         pc += _offset;                                                      \
         EXPORT_EXTRA_PC();                                                  \
     } while (false)
-#endif
 
 
 static const char kSpacing[] = "            ";
 
 
-/* get a long from an array of u4 */
-static inline s8 getLongFromArray(const u4 *ptr, int idx) {
-#if defined(NO_UNALIGN_64__UNION)
-    union {
-        s8 ll;
-        u4 parts[2];
-    } conv;
+///* get a long from an array of u4 */
+//static inline s8 getLongFromArray(const REGISTER *ptr, int idx) {
+//    return *(s8 *) (ptr + idx);
+//}
+//
+///* store a long into an array of u4 */
+//static inline void putLongToArray(REGISTER *ptr, int idx, s8 val) {
+//    *(s8 *) (ptr + idx) = val;
+//}
+//
+///* get a double from an array of u4 */
+//static inline double getDoubleFromArray(const REGISTER *ptr, int idx) {
+//    return *(double *) (ptr + idx);
+//}
+//
+///* store a double into an array of u4 */
+//static inline void putDoubleToArray(REGISTER *ptr, int idx, double dval) {
+//    *(double *) (ptr + idx) = dval;
+//}
 
-    ptr += idx;
-    conv.parts[0] = ptr[0];
-    conv.parts[1] = ptr[1];
-    return conv.ll;
-#else
-    s8 val;
-    memcpy(&val, &ptr[idx], 8);
-    return val;
-#endif
-}
+///*
+// * If enabled, validate the register number on every access.  Otherwise,
+// * just do an array access.
+// *
+// * Assumes the existence of "u4* fp".
+// *
+// * "_idx" may be referenced more than once.
+// */
+//#if defined(__aarch64__)
+//// ok
+//# define GET_REGISTER(_idx)                 (reg[(_idx)])
+//// ok
+//# define SET_REGISTER(_idx, _val)           (reg[(_idx)] = (_val))
+//// ok
+//# define GET_REGISTER_AS_OBJECT(_idx)       ((jobject) reg[(_idx)])
+//// ok
+//# define SET_REGISTER_AS_OBJECT(_idx, _val) (reg[(_idx)] = (REGISTER)(_val))
+//// ok
+//# define GET_REGISTER_INT(_idx)             ((s4)GET_REGISTER(_idx))
+//// ok
+//# define SET_REGISTER_INT(_idx, _val)       SET_REGISTER(_idx, (s4)_val)
+//// ok
+//# define GET_REGISTER_WIDE(_idx)            (reg[(_idx)])
+//// ok
+//# define SET_REGISTER_WIDE(_idx, _val)      (reg[(_idx)] = (_val))
+//// ok
+//# define GET_REGISTER_FLOAT(_idx)           (*((float*) &reg[(_idx)]))
+//// ok
+//# define SET_REGISTER_FLOAT(_idx, _val)     (*((float*) &reg[(_idx)]) = (_val))
+//// ok
+//# define GET_REGISTER_DOUBLE(_idx)          getDoubleFromArray(reg, (_idx))
+//// ok
+//# define SET_REGISTER_DOUBLE(_idx, _val)    putDoubleToArray(reg, (_idx), (_val))
+//
+//#else
+//// ok
+//# define GET_REGISTER(_idx)                 (reg[(_idx)])
+//// ok
+//# define SET_REGISTER(_idx, _val)           (reg[(_idx)] = (_val))
+//// ok
+//# define GET_REGISTER_AS_OBJECT(_idx)       ((jobject) reg[(_idx)])
+//// ok
+//# define SET_REGISTER_AS_OBJECT(_idx, _val) (reg[(_idx)] = (u4)(_val))
+//// ok
+//# define GET_REGISTER_INT(_idx)             ((s4)GET_REGISTER(_idx))
+//// ok
+//# define SET_REGISTER_INT(_idx, _val)       SET_REGISTER(_idx, (s4)_val)
+//// ok
+//# define GET_REGISTER_WIDE(_idx)            getLongFromArray(reg, (_idx))
+//// ok
+//# define SET_REGISTER_WIDE(_idx, _val)      putLongToArray(reg, (_idx), (_val))
+//// ok
+//# define GET_REGISTER_FLOAT(_idx)           (*((float*) &reg[(_idx)]))
+//// ok
+//# define SET_REGISTER_FLOAT(_idx, _val)     (*((float*) &reg[(_idx)]) = (_val))
+//// ok
+//# define GET_REGISTER_DOUBLE(_idx)          getDoubleFromArray(reg, (_idx))
+//// ok
+//# define SET_REGISTER_DOUBLE(_idx, _val)    putDoubleToArray(reg, (_idx), (_val))
+//
+//#endif
 
-/* store a long into an array of u4 */
-static inline void putLongToArray(u4 *ptr, int idx, s8 val) {
-#if defined(NO_UNALIGN_64__UNION)
-    union {
-        s8 ll;
-        u4 parts[2];
-    } conv;
+#define GET_REGISTER(_idx)                 (*(u4*)(reg+(_idx)))
 
-    ptr += idx;
-    conv.ll = val;
-    ptr[0] = conv.parts[0];
-    ptr[1] = conv.parts[1];
-#else
-    memcpy(&ptr[idx], &val, 8);
-#endif
-}
+#define SET_REGISTER(_idx, _val)           (*(u4*)(reg+(_idx)) = (_val))
 
-/* get a double from an array of u4 */
-static inline double getDoubleFromArray(const u4 *ptr, int idx) {
-#if defined(NO_UNALIGN_64__UNION)
-    union {
-        double d;
-        u4 parts[2];
-    } conv;
+#define GET_REGISTER_WIDE(_idx)            (*(u8*)(reg+(_idx)))
 
-    ptr += idx;
-    conv.parts[0] = ptr[0];
-    conv.parts[1] = ptr[1];
-    return conv.d;
-#else
-    double dval;
-    memcpy(&dval, &ptr[idx], 8);
-    return dval;
-#endif
-}
+#define SET_REGISTER_WIDE(_idx, _val)      (*(u8*)(reg+(_idx)) = (_val))
 
-/* store a double into an array of u4 */
-static inline void putDoubleToArray(u4 *ptr, int idx, double dval) {
-#if defined(NO_UNALIGN_64__UNION)
-    union {
-        double d;
-        u4 parts[2];
-    } conv;
+#define GET_REGISTER_AS_OBJECT(_idx)       (reg[_idx].l)
 
-    ptr += idx;
-    conv.d = dval;
-    ptr[0] = conv.parts[0];
-    ptr[1] = conv.parts[1];
-#else
-    memcpy(&ptr[idx], &dval, 8);
-#endif
-}
+#define SET_REGISTER_AS_OBJECT(_idx, _val) (reg[_idx].l = (jobject)(_val))
 
-/*
- * If enabled, validate the register number on every access.  Otherwise,
- * just do an array access.
- *
- * Assumes the existence of "u4* fp".
- *
- * "_idx" may be referenced more than once.
- */
-// ok
-# define GET_REGISTER(_idx)                 (reg[(_idx)])
-// ok
-# define SET_REGISTER(_idx, _val)           (reg[(_idx)] = (_val))
-// ok
-# define GET_REGISTER_AS_OBJECT(_idx)       ((jobject) reg[(_idx)])
-// ok
-# define SET_REGISTER_AS_OBJECT(_idx, _val) (reg[(_idx)] = (u4)(_val))
-// ok
-# define GET_REGISTER_INT(_idx)             ((s4)GET_REGISTER(_idx))
-// ok
-# define SET_REGISTER_INT(_idx, _val)       SET_REGISTER(_idx, (s4)_val)
-// ok
-# define GET_REGISTER_WIDE(_idx)            getLongFromArray(reg, (_idx))
-// ok
-# define SET_REGISTER_WIDE(_idx, _val)      putLongToArray(reg, (_idx), (_val))
-// ok
-# define GET_REGISTER_FLOAT(_idx)           (*((float*) &reg[(_idx)]))
-// ok
-# define SET_REGISTER_FLOAT(_idx, _val)     (*((float*) &reg[(_idx)]) = (_val))
-// ok
-# define GET_REGISTER_DOUBLE(_idx)          getDoubleFromArray(reg, (_idx))
-// ok
-# define SET_REGISTER_DOUBLE(_idx, _val)    putDoubleToArray(reg, (_idx), (_val))
+#define GET_REGISTER_INT(_idx)             (reg[_idx].i)
+
+#define SET_REGISTER_INT(_idx, _val)       ((reg[_idx].i) = _val)
+
+#define GET_REGISTER_FLOAT(_idx)           (reg[_idx].f)
+
+#define SET_REGISTER_FLOAT(_idx, _val)     ((reg[_idx].f) = _val)
+
+#define GET_REGISTER_DOUBLE(_idx)          (reg[_idx].d)
+
+#define SET_REGISTER_DOUBLE(_idx, _val)    ((reg[_idx].d) = _val)
 
 /*
  * Get 16 bits from the specified offset of the program counter.  We always
@@ -901,10 +830,6 @@ static inline void putDoubleToArray(u4 *ptr, int idx, double dval) {
 // ok
 #define INST_INST(_inst)    ((_inst) & 0xff)
 
-/*
- * Replace the opcode (used when handling breakpoints).  _opcode is a u1.
- */
-#define INST_REPLACE_OP(_inst, _opcode) (((_inst) & 0xff00) | _opcode)
 
 /*
  * Extract the "vA, vB" 4-bit registers from the instruction word (_inst is u2).
@@ -936,7 +861,6 @@ static inline void putDoubleToArray(u4 *ptr, int idx, double dval) {
 
 /* ugh */
 #define STUB_HACK(x)
-#define JIT_STUB_HACK(x)
 
 /*
  * Instruction framing.  For a switch-oriented implementation this is
@@ -946,9 +870,8 @@ static inline void putDoubleToArray(u4 *ptr, int idx, double dval) {
  * Assumes the existence of "const u2* pc" and (for threaded operation)
  * "u2 inst".
  */
-# define H(_op)             &&op_##_op
 // ok
-# define HANDLE_OPCODE(_op) //op_##_op:
+# define HANDLE_OPCODE(_op) { //op_##_op:
 // ok
 # define FINISH(_offset) {                                                  \
         ADJUST_PC(_offset);                                                 \
@@ -958,7 +881,7 @@ static inline void putDoubleToArray(u4 *ptr, int idx, double dval) {
     }
 
 
-#define OP_END
+#define OP_END }
 
 /*
  * The "goto" targets just turn into goto statements.  The "arguments" are
@@ -967,7 +890,6 @@ static inline void putDoubleToArray(u4 *ptr, int idx, double dval) {
 
 #define GOTO_exceptionThrown() goto exceptionThrown;
 
-#define GOTO_returnFromMethod() goto returnFromMethod;
 
 // ok
 #define GOTO_invoke(_target, _methodCallRange)                              \
@@ -983,18 +905,6 @@ static inline void putDoubleToArray(u4 *ptr, int idx, double dval) {
 // ok
 #define GOTO_bail() goto bail;
 
-/*
- * Periodically check for thread suspension.
- *
- * While we're at it, see if a debugger has attached or the profiler has
- * started.  If so, switch to a different "goto" table.
- */
-//#define PERIODIC_CHECKS(_pcadj) {                              \
-//        if (dvmCheckSuspendQuick(self)) {                                   \
-//            EXPORT_PC();  /* need for precise GC */                         \
-//            dvmCheckSuspendPending(self);                                   \
-//        }                                                                   \
-//    }
 #define PERIODIC_CHECKS(_pcadj) {                              \
     }
 
@@ -1039,7 +949,6 @@ GOTO_TARGET_DECL(exceptionThrown);
 #define HANDLE_FLOAT_TO_INT(_opcode, _opname, _fromvtype, _fromrtype, \
         _tovtype, _tortype)                                                 \
     HANDLE_OPCODE(_opcode /*vA, vB*/)                                       \
-    {                                                                       \
         /* spec defines specific handling for +/- inf and NaN values */     \
         _fromvtype val;                                                     \
         _tovtype intMin, intMax, result;                                    \
@@ -1050,16 +959,11 @@ GOTO_TARGET_DECL(exceptionThrown);
         intMin = (_tovtype) 1 << (sizeof(_tovtype) * 8 -1);                 \
         intMax = ~intMin;                                                   \
         result = (_tovtype) val;                                            \
-        if (val >= intMax)          /* +inf */                              \
-            result = intMax;                                                \
-        else if (val <= intMin)     /* -inf */                              \
-            result = intMin;                                                \
-        else if (val != val)        /* NaN */                               \
-            result = 0;                                                     \
-        else                                                                \
-            result = (_tovtype) val;                                        \
+        if (val >= intMax) {result = intMax;}                               \
+        else if (val <= intMin) {result = intMin;}                          \
+        else if (val != val) {result = 0;}                                  \
+        else {result = (_tovtype) val;}                                     \
         SET_REGISTER##_tortype(vdst, result);                               \
-    }                                                                       \
     FINISH(1);
 
 // ok
@@ -1075,7 +979,6 @@ GOTO_TARGET_DECL(exceptionThrown);
 /* NOTE: the comparison result is always a signed 4-byte integer */
 #define HANDLE_OP_CMPX(_opcode, _opname, _varType, _type, _nanVal)          \
     HANDLE_OPCODE(_opcode /*vAA, vBB, vCC*/)                                \
-    {                                                                       \
         int result;                                                         \
         u2 regs;                                                            \
         _varType val1, val2;                                                \
@@ -1086,17 +989,12 @@ GOTO_TARGET_DECL(exceptionThrown);
         LOG_D("|cmp%s v%d,v%d,v%d", (_opname), vdst, vsrc1, vsrc2);         \
         val1 = GET_REGISTER##_type(vsrc1);                                  \
         val2 = GET_REGISTER##_type(vsrc2);                                  \
-        if (val1 == val2)                                                   \
-            result = 0;                                                     \
-        else if (val1 < val2)                                               \
-            result = -1;                                                    \
-        else if (val1 > val2)                                               \
-            result = 1;                                                     \
-        else                                                                \
-            result = (_nanVal);                                             \
+        if (val1 == val2) {result = 0;}                                     \
+        else if (val1 < val2) {result = -1;}                                \
+        else if (val1 > val2) {result = 1;}                                 \
+        else {result = (_nanVal); }                                         \
         LOG_D("+ result=%d", result);                                       \
         SET_REGISTER(vdst, result);                                         \
-    }                                                                       \
     FINISH(2);
 
 // ok
@@ -1109,8 +1007,6 @@ GOTO_TARGET_DECL(exceptionThrown);
             LOG_D("|if-%s v%d,v%d,+0x%04x", (_opname), vsrc1, vsrc2,        \
                 branchOffset);                                              \
             LOG_D("> branch taken");                                        \
-            if (branchOffset < 0)                                           \
-                PERIODIC_CHECKS(branchOffset);                              \
             FINISH(branchOffset);                                           \
         } else {                                                            \
             LOG_D("|if-%s v%d,v%d,-", (_opname), vsrc1, vsrc2);             \
@@ -1125,8 +1021,6 @@ GOTO_TARGET_DECL(exceptionThrown);
             int branchOffset = (s2)FETCH(1);    /* sign-extended */         \
             LOG_D("|if-%s v%d,+0x%04x", (_opname), vsrc1, branchOffset);    \
             LOG_D("> branch taken");                                        \
-            if (branchOffset < 0)                                           \
-                PERIODIC_CHECKS(branchOffset);                              \
             FINISH(branchOffset);                                           \
         } else {                                                            \
             LOG_D("|if-%s v%d,-", (_opname), vsrc1);                        \
@@ -1147,7 +1041,6 @@ GOTO_TARGET_DECL(exceptionThrown);
 // ok
 #define HANDLE_OP_X_INT(_opcode, _opname, _op, _chkdiv)                     \
     HANDLE_OPCODE(_opcode /*vAA, vBB, vCC*/)                                \
-    {                                                                       \
         u2 srcRegs;                                                         \
         vdst = INST_AA(inst);                                               \
         srcRegs = FETCH(1);                                                 \
@@ -1163,10 +1056,8 @@ GOTO_TARGET_DECL(exceptionThrown);
                 GOTO_exceptionThrown();                                     \
             }                                                               \
             if ((u4)firstVal == 0x80000000 && secondVal == -1) {            \
-                if (_chkdiv == 1)                                           \
-                    result = firstVal;  /* division */                      \
-                else                                                        \
-                    result = 0;         /* remainder */                     \
+                if (_chkdiv == 1) {result = firstVal;}                      \
+                else {result = 0;}                                          \
             } else {                                                        \
                 result = firstVal _op secondVal;                            \
             }                                                               \
@@ -1176,13 +1067,11 @@ GOTO_TARGET_DECL(exceptionThrown);
             SET_REGISTER(vdst,                                              \
                 (s4) GET_REGISTER(vsrc1) _op (s4) GET_REGISTER(vsrc2));     \
         }                                                                   \
-    }                                                                       \
     FINISH(2);
 
 // ok
 #define HANDLE_OP_SHX_INT(_opcode, _opname, _cast, _op)                     \
     HANDLE_OPCODE(_opcode /*vAA, vBB, vCC*/)                                \
-    {                                                                       \
         u2 srcRegs;                                                         \
         vdst = INST_AA(inst);                                               \
         srcRegs = FETCH(1);                                                 \
@@ -1191,7 +1080,6 @@ GOTO_TARGET_DECL(exceptionThrown);
         LOG_D("|%s-int v%d,v%d", (_opname), vdst, vsrc1);                   \
         SET_REGISTER(vdst,                                                  \
             _cast GET_REGISTER(vsrc1) _op (GET_REGISTER(vsrc2) & 0x1f));    \
-    }                                                                       \
     FINISH(2);
 
 // ok
@@ -1211,10 +1099,8 @@ GOTO_TARGET_DECL(exceptionThrown);
             }                                                               \
             if ((u4)firstVal == 0x80000000 && ((s2) vsrc2) == -1) {         \
                 /* won't generate /lit16 instr for this; check anyway */    \
-                if (_chkdiv == 1)                                           \
-                    result = firstVal;  /* division */                      \
-                else                                                        \
-                    result = 0;         /* remainder */                     \
+                if (_chkdiv == 1) {result = firstVal;}                      \
+                else {result = 0;}                                          \
             } else {                                                        \
                 result = firstVal _op (s2) vsrc2;                           \
             }                                                               \
@@ -1228,7 +1114,6 @@ GOTO_TARGET_DECL(exceptionThrown);
 // ok
 #define HANDLE_OP_X_INT_LIT8(_opcode, _opname, _op, _chkdiv)                \
     HANDLE_OPCODE(_opcode /*vAA, vBB, #+CC*/)                               \
-    {                                                                       \
         u2 litInfo;                                                         \
         vdst = INST_AA(inst);                                               \
         litInfo = FETCH(1);                                                 \
@@ -1244,10 +1129,8 @@ GOTO_TARGET_DECL(exceptionThrown);
                 GOTO_exceptionThrown();                                     \
             }                                                               \
             if ((u4)firstVal == 0x80000000 && ((s1) vsrc2) == -1) {         \
-                if (_chkdiv == 1)                                           \
-                    result = firstVal;  /* division */                      \
-                else                                                        \
-                    result = 0;         /* remainder */                     \
+                if (_chkdiv == 1) {result = firstVal;}                      \
+                else { result = 0; }                                        \
             } else {                                                        \
                 result = firstVal _op ((s1) vsrc2);                         \
             }                                                               \
@@ -1256,13 +1139,11 @@ GOTO_TARGET_DECL(exceptionThrown);
             SET_REGISTER(vdst,                                              \
                 (s4) GET_REGISTER(vsrc1) _op (s1) vsrc2);                   \
         }                                                                   \
-    }                                                                       \
     FINISH(2);
 
 // ok
 #define HANDLE_OP_SHX_INT_LIT8(_opcode, _opname, _cast, _op)                \
     HANDLE_OPCODE(_opcode /*vAA, vBB, #+CC*/)                               \
-    {                                                                       \
         u2 litInfo;                                                         \
         vdst = INST_AA(inst);                                               \
         litInfo = FETCH(1);                                                 \
@@ -1272,7 +1153,6 @@ GOTO_TARGET_DECL(exceptionThrown);
             (_opname), vdst, vsrc1, vsrc2);                                 \
         SET_REGISTER(vdst,                                                  \
             _cast GET_REGISTER(vsrc1) _op (vsrc2 & 0x1f));                  \
-    }                                                                       \
     FINISH(2);
 
 // ok
@@ -1290,10 +1170,8 @@ GOTO_TARGET_DECL(exceptionThrown);
                 GOTO_exceptionThrown();                                     \
             }                                                               \
             if ((u4)firstVal == 0x80000000 && secondVal == -1) {            \
-                if (_chkdiv == 1)                                           \
-                    result = firstVal;  /* division */                      \
-                else                                                        \
-                    result = 0;         /* remainder */                     \
+                if (_chkdiv == 1) {result = firstVal;}                      \
+                else {result = 0;}                                          \
             } else {                                                        \
                 result = firstVal _op secondVal;                            \
             }                                                               \
@@ -1317,7 +1195,6 @@ GOTO_TARGET_DECL(exceptionThrown);
 // ok
 #define HANDLE_OP_X_LONG(_opcode, _opname, _op, _chkdiv)                    \
     HANDLE_OPCODE(_opcode /*vAA, vBB, vCC*/)                                \
-    {                                                                       \
         u2 srcRegs;                                                         \
         vdst = INST_AA(inst);                                               \
         srcRegs = FETCH(1);                                                 \
@@ -1335,10 +1212,8 @@ GOTO_TARGET_DECL(exceptionThrown);
             if ((u8)firstVal == 0x8000000000000000ULL &&                    \
                 secondVal == -1LL)                                          \
             {                                                               \
-                if (_chkdiv == 1)                                           \
-                    result = firstVal;  /* division */                      \
-                else                                                        \
-                    result = 0;         /* remainder */                     \
+                if (_chkdiv == 1) {result = firstVal;}                      \
+                else {result = 0;}                                          \
             } else {                                                        \
                 result = firstVal _op secondVal;                            \
             }                                                               \
@@ -1347,13 +1222,11 @@ GOTO_TARGET_DECL(exceptionThrown);
             SET_REGISTER_WIDE(vdst,                                         \
                 (s8) GET_REGISTER_WIDE(vsrc1) _op (s8) GET_REGISTER_WIDE(vsrc2)); \
         }                                                                   \
-    }                                                                       \
     FINISH(2);
 
 // ok
 #define HANDLE_OP_SHX_LONG(_opcode, _opname, _cast, _op)                    \
     HANDLE_OPCODE(_opcode /*vAA, vBB, vCC*/)                                \
-    {                                                                       \
         u2 srcRegs;                                                         \
         vdst = INST_AA(inst);                                               \
         srcRegs = FETCH(1);                                                 \
@@ -1362,7 +1235,6 @@ GOTO_TARGET_DECL(exceptionThrown);
         LOG_D("|%s-long v%d,v%d,v%d", (_opname), vdst, vsrc1, vsrc2);       \
         SET_REGISTER_WIDE(vdst,                                             \
             _cast GET_REGISTER_WIDE(vsrc1) _op (GET_REGISTER(vsrc2) & 0x3f)); \
-    }                                                                       \
     FINISH(2);
 
 // ok
@@ -1382,10 +1254,8 @@ GOTO_TARGET_DECL(exceptionThrown);
             if ((u8)firstVal == 0x8000000000000000ULL &&                    \
                 secondVal == -1LL)                                          \
             {                                                               \
-                if (_chkdiv == 1)                                           \
-                    result = firstVal;  /* division */                      \
-                else                                                        \
-                    result = 0;         /* remainder */                     \
+                if (_chkdiv == 1) {result = firstVal;}                      \
+                else {result = 0; }                                         \
             } else {                                                        \
                 result = firstVal _op secondVal;                            \
             }                                                               \
@@ -1408,7 +1278,6 @@ GOTO_TARGET_DECL(exceptionThrown);
 // ok
 #define HANDLE_OP_X_FLOAT(_opcode, _opname, _op)                            \
     HANDLE_OPCODE(_opcode /*vAA, vBB, vCC*/)                                \
-    {                                                                       \
         u2 srcRegs;                                                         \
         vdst = INST_AA(inst);                                               \
         srcRegs = FETCH(1);                                                 \
@@ -1417,13 +1286,11 @@ GOTO_TARGET_DECL(exceptionThrown);
         LOG_D("|%s-float v%d,v%d,v%d", (_opname), vdst, vsrc1, vsrc2);      \
         SET_REGISTER_FLOAT(vdst,                                            \
             GET_REGISTER_FLOAT(vsrc1) _op GET_REGISTER_FLOAT(vsrc2));       \
-    }                                                                       \
     FINISH(2);
 
 // ok
 #define HANDLE_OP_X_DOUBLE(_opcode, _opname, _op)                           \
     HANDLE_OPCODE(_opcode /*vAA, vBB, vCC*/)                                \
-    {                                                                       \
         u2 srcRegs;                                                         \
         vdst = INST_AA(inst);                                               \
         srcRegs = FETCH(1);                                                 \
@@ -1432,7 +1299,6 @@ GOTO_TARGET_DECL(exceptionThrown);
         LOG_D("|%s-double v%d,v%d,v%d", (_opname), vdst, vsrc1, vsrc2);     \
         SET_REGISTER_DOUBLE(vdst,                                           \
             GET_REGISTER_DOUBLE(vsrc1) _op GET_REGISTER_DOUBLE(vsrc2));     \
-    }                                                                       \
     FINISH(2);
 
 
@@ -1460,7 +1326,6 @@ GOTO_TARGET_DECL(exceptionThrown);
 // ok
 #define HANDLE_OP_AGET(_opcode, _opname, _jtype, _ctype, _regsize)        \
     HANDLE_OPCODE(_opcode /*vAA, vBB, vCC*/)                                \
-    {                                                                       \
         _ctype##Array arrayObj;                                             \
         u2 arrayInfo;                                                       \
         vdst = INST_AA(inst);                                               \
@@ -1468,7 +1333,7 @@ GOTO_TARGET_DECL(exceptionThrown);
         vsrc1 = arrayInfo & 0xff;    /* array ptr */                        \
         vsrc2 = arrayInfo >> 8;      /* index */                            \
         LOG_D("|aget%s v%d,v%d,v%d", (_opname), vdst, vsrc1, vsrc2);        \
-        arrayObj = (_ctype##Array) GET_REGISTER(vsrc1);                      \
+        arrayObj = (_ctype##Array) GET_REGISTER_AS_OBJECT(vsrc1);           \
         if (!checkForNull((jobject) arrayObj)){                             \
              GOTO_exceptionThrown();                                        \
         }                                                                   \
@@ -1481,68 +1346,47 @@ GOTO_TARGET_DECL(exceptionThrown);
         (*env).Get##_jtype##ArrayRegion(arrayObj,                           \
                 GET_REGISTER(vsrc2), 1, (_ctype*)tmpBuf);                   \
         SET_REGISTER##_regsize(vdst, *((_ctype*)tmpBuf));                  \
-        LOG_D("+ AGET[%d]=%#x", GET_REGISTER(vsrc2), GET_REGISTER(vdst));    \
-    }                                                                       \
+        LOG_D("+ AGET[%d]=%#x", GET_REGISTER(vsrc2), GET_REGISTER(vdst));   \
     FINISH(2);
 
 // ok
 #define HANDLE_OP_APUT(_opcode, _opname, _jtype, _ctype, _regsize)          \
     HANDLE_OPCODE(_opcode /*vAA, vBB, vCC*/)                                \
-    {                                                                       \
         _ctype##Array arrayObj;                                             \
         u2 arrayInfo;                                                       \
         vdst = INST_AA(inst);       /* AA: source value */                  \
         arrayInfo = FETCH(1);                                               \
         vsrc1 = arrayInfo & 0xff;   /* BB: array ptr */                     \
         vsrc2 = arrayInfo >> 8;     /* CC: index */                         \
-        LOG_D("|aput%s v%d,v%d,v%d", (_opname), vdst, vsrc1, vsrc2);         \
-        arrayObj = (_ctype##Array) GET_REGISTER(vsrc1);                     \
+        LOG_D("|aput%s v%d,v%d,v%d", (_opname), vdst, vsrc1, vsrc2);        \
+        arrayObj = (_ctype##Array) GET_REGISTER_AS_OBJECT(vsrc1);                     \
         if (!checkForNull((jobject) arrayObj)){                             \
             GOTO_exceptionThrown();                                         \
         }                                                                   \
         if (GET_REGISTER(vsrc2) >= (*env).GetArrayLength(arrayObj)) {       \
             dvmThrowArrayIndexOutOfBoundsException(                         \
                 (*env).GetArrayLength(arrayObj), GET_REGISTER(vsrc2));      \
-            GOTO_bail();                                                     \
+            GOTO_bail();                                                    \
         }                                                                   \
-        LOG_D("+ APUT[%d]=0x%08llx", GET_REGISTER(vsrc2),                      \
-                (jlong)GET_REGISTER##_regsize(vdst));                          \
-        u8 tmpBuf[1];                                                        \
-        *((_ctype*)tmpBuf) = GET_REGISTER##_regsize(vdst);                    \
+        LOG_D("+ APUT[%d]=0x%08lx", GET_REGISTER(vsrc2),                   \
+                (jlong)GET_REGISTER##_regsize(vdst));                       \
+        u8 tmpBuf[1];                                                       \
+        *((_ctype*)tmpBuf) = GET_REGISTER##_regsize(vdst);                  \
         (*env).Set##_jtype##ArrayRegion(arrayObj,                           \
-                GET_REGISTER(vsrc2), 1, (_ctype*)tmpBuf);                  \
-    }                                                                       \
+                GET_REGISTER(vsrc2), 1, (_ctype*)tmpBuf);                   \
     FINISH(2);
 
-/*
- * It's possible to get a bad value out of a field with sub-32-bit stores
- * because the -quick versions always operate on 32 bits.  Consider:
- *   short foo = -1  (sets a 32-bit register to 0xffffffff)
- *   iput-quick foo  (writes all 32 bits to the field)
- *   short bar = 1   (sets a 32-bit register to 0x00000001)
- *   iput-short      (writes the low 16 bits to the field)
- *   iget-quick foo  (reads all 32 bits from the field, yielding 0xffff0001)
- * This can only happen when optimized and non-optimized code has interleaved
- * access to the same field.  This is unlikely but possible.
- *
- * The easiest way to fix this is to always read/write 32 bits at a time.  On
- * a device with a 16-bit data bus this is sub-optimal.  (The alternative
- * approach is to have sub-int versions of iget-quick, but now we're wasting
- * Dalvik instruction space and making it less likely that handler code will
- * already be in the CPU i-cache.)
- */
 
 // ok
 #define HANDLE_IGET_X(_opcode, _opname, _ctype, _regsize)                   \
     HANDLE_OPCODE(_opcode /*vA, vB, field@CCCC*/)                           \
-    {                                                                       \
         jfieldID ifield;                                                    \
         jobject obj;                                                        \
         vdst = INST_A(inst);                                                \
         vsrc1 = INST_B(inst);   /* object ptr */                            \
         ref = FETCH(1);         /* field ref */                             \
         LOG_D("|iget%s v%d,v%d,field@0x%04x", (_opname), vdst, vsrc1, ref);  \
-        obj = (jobject) GET_REGISTER(vsrc1);                                \
+        obj = GET_REGISTER_AS_OBJECT(vsrc1);                                \
         if (!checkForNull(obj)){                                            \
             GOTO_exceptionThrown();                                         \
         }                                                                   \
@@ -1552,76 +1396,31 @@ GOTO_TARGET_DECL(exceptionThrown);
             GOTO_exceptionThrown();                                         \
         }                                                                   \
         SET_REGISTER##_regsize(vdst, (_ctype)resVal);                       \
-        LOG_D("+ IGET '%s'=0x%08llx", name,                                  \
-            (u8) GET_REGISTER##_regsize(vdst));                             \
-    }                                                                       \
+        LOG_D("+ IGET '%s'=0x%08lx", name,                                 \
+            (u8)GET_REGISTER##_regsize(vdst));                              \
     FINISH(2);
 
-//// ok
-//#define HANDLE_IGET_X_QUICK(_opcode, _opname, _ftype, _regsize)             \
-//   HANDLE_OPCODE(_opcode /*vA, vB, field@CCCC*/)                           \
-//   {                                                                       \
-//       jobject obj;                                                        \
-//       vdst = INST_A(inst);                                                \
-//        vsrc1 = INST_B(inst);   /* object ptr */                            \
-//        ref = FETCH(1);         /* field offset */                          \
-//        LOG_D("|iget%s-quick v%d,v%d,field@+%u",                            \
-//            (_opname), vdst, vsrc1, ref);                                   \
-//        obj = (jobject) GET_REGISTER(vsrc1);                                \
-//        if(!checkForNull(obj)){                                             \
-//            GOTO_bail();                                                    \
-//        }                                                                 \
-//        Object* cObj = nullptr;                                             \
-//        getObjectOrThreadByJObject(obj, &cObj, nullptr);                    \
-//        SET_REGISTER##_regsize(vdst, dvmGetField##_ftype(cObj, ref));        \
-//        LOG_D("+ IGETQ %d=0x%08llx", ref,                                   \
-//            (u8) GET_REGISTER##_regsize(vdst));                             \
-//    }                                                                       \
-//    FINISH(2);
-//
-
 // ok
-#define HANDLE_IPUT_X(_opcode, _opname, _regsize)           \
+#define HANDLE_IPUT_X(_opcode, _opname, _regsize)                           \
     HANDLE_OPCODE(_opcode /*vA, vB, field@CCCC*/)                           \
-    {                                                                       \
-        jfieldID ifield;                                                  \
+        jfieldID ifield;                                                    \
         jobject obj;                                                         \
         vdst = INST_A(inst);                                                \
         vsrc1 = INST_B(inst);   /* object ptr */                            \
         ref = FETCH(1);         /* field ref */                             \
         LOG_D("|iput%s v%d,v%d,field@0x%04x", (_opname), vdst, vsrc1, ref); \
-        obj = (jobject) GET_REGISTER(vsrc1);                                \
+        obj = GET_REGISTER_AS_OBJECT(vsrc1);                                \
         if (!checkForNull(obj)){                                            \
             GOTO_exceptionThrown();                                         \
         }                                                                   \
         const char* name;                                                   \
         u8 resVal = (u8)GET_REGISTER##_regsize(vdst);                       \
-        if(!dvmResolveSetField(curMethod, ref, obj, resVal, &name)){ \
+        if(!dvmResolveSetField(curMethod, ref, obj, resVal, &name)){        \
             GOTO_exceptionThrown();                                         \
         }                                                                   \
-        LOG_D("+ IPUT '%s'=0x%08llx", name,                                  \
+        LOG_D("+ IPUT '%s'=0x%08lx", name,                                 \
             (u8) GET_REGISTER##_regsize(vdst));                             \
-    }                                                                       \
     FINISH(2);
-
-//#define HANDLE_IPUT_X_QUICK(_opcode, _opname, _ftype, _regsize)             \
-//    HANDLE_OPCODE(_opcode /*vA, vB, field@CCCC*/)                           \
-//    {                                                                       \
-//        jobject obj;                                                        \
-//        vdst = INST_A(inst);                                                \
-//        vsrc1 = INST_B(inst);   /* object ptr */                            \
-//        ref = FETCH(1);         /* field offset */                          \
-//        LOG_D("|iput%s-quick v%d,v%d,field@0x%04x",                         \
-//            (_opname), vdst, vsrc1, ref);                                   \
-//        obj = (jobject) GET_REGISTER(vsrc1);                                \
-//        if (!checkForNull(obj)){                                            \
-//            GOTO_bail();                                                    \
-//        }                                                                   \
-//        dvmSetField##_ftype(obj, ref, GET_REGISTER##_regsize(vdst));        \
-//        LOG_D("+ IPUTQ %d=0x%08llx", ref,                                   \
-//            (u8) GET_REGISTER##_regsize(vdst));                             \
-//    }                                                                       \
-//    FINISH(2);
 
 /*
  * The JIT needs dvmDexGetResolvedField() to return non-null.
@@ -1634,39 +1433,35 @@ GOTO_TARGET_DECL(exceptionThrown);
 // ok
 #define HANDLE_SGET_X(_opcode, _opname, _ctype, _regsize)                   \
     HANDLE_OPCODE(_opcode /*vAA, field@BBBB*/)                              \
-    {                                                                       \
         jfieldID sfield;                                                    \
         vdst = INST_AA(inst);                                               \
         ref = FETCH(1);         /* field ref */                             \
         LOG_D("|sget%s v%d,sfield@0x%04x", (_opname), vdst, ref);            \
         const char* name;                                                   \
         s8 resVal;                                                          \
-        if(!dvmResolveField(curMethod, ref, nullptr, &resVal, &name)){   \
+        if(!dvmResolveField(curMethod, ref, nullptr, &resVal, &name)){      \
             GOTO_exceptionThrown();                                         \
         }                                                                   \
         SET_REGISTER##_regsize(vdst, (_ctype)resVal);                       \
-        LOG_D("+ SGET '%s'=0x%08llx", name,                                   \
+        LOG_D("+ SGET '%s'=0x%08lx", name,                                 \
             (u8)GET_REGISTER##_regsize(vdst));                              \
-    }                                                                       \
     FINISH(2);
 
 
 // ok
 #define HANDLE_SPUT_X(_opcode, _opname, _regsize)                           \
     HANDLE_OPCODE(_opcode /*vAA, field@BBBB*/)                              \
-    {                                                                       \
         jfieldID sfield;                                                    \
         vdst = INST_AA(inst);                                               \
         ref = FETCH(1);         /* field ref */                             \
-        LOG_D("|sput%s v%d,sfield@0x%04x", (_opname), vdst, ref);            \
+        LOG_D("|sput%s v%d,sfield@0x%04x", (_opname), vdst, ref);           \
         const char* name;                                                   \
         u8 resVal = (u8)GET_REGISTER##_regsize(vdst);                       \
-        if(!dvmResolveSetField(curMethod, ref, nullptr, resVal, &name)){   \
+        if(!dvmResolveSetField(curMethod, ref, nullptr, resVal, &name)){    \
             GOTO_exceptionThrown();                                         \
         }                                                                   \
-        LOG_D("+ SPUT '%s'=0x%08llx", name,                                  \
+        LOG_D("+ SPUT '%s'=0x%08lx", name,                                 \
             (u8)GET_REGISTER##_regsize(vdst));                              \
-    }                                                                       \
     FINISH(2);
 
 

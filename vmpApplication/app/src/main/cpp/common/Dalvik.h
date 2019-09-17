@@ -1243,7 +1243,7 @@ public:
     //
     // The ClassLinker will use this to match DexFiles the boot class
     // path to DexCache::GetLocation when loading from an image.
-    const std::string location;
+    const string location;
 
     const uint32_t location_checksum;
 
@@ -1294,7 +1294,7 @@ public:
 };
 
 // C++ mirror of java.lang.DexCache.
-class MANAGED ArtDexCache : public ArtObject {
+class MANAGED ArtDexCache_21_23 : public ArtObject {
 public:
     uint32_t dex;
     uint32_t location;
@@ -1304,6 +1304,33 @@ public:
     uint32_t resolved_types;
     uint32_t strings;
     uint64_t dex_file;
+};
+
+class MANAGED ArtDexCache_26_27 : public ArtObject {
+public:
+    uint32_t location;
+    // Number of elements in the call_sites_ array. Note that this appears here
+    // because of our packing logic for 32 bit fields.
+    uint32_t num_resolved_call_sites;
+
+    uint64_t dex_file;               // const DexFile*
+    uint64_t resolved_call_sites;    // GcRoot<CallSite>* array with num_resolved_call_sites_
+
+    // elements.
+    uint64_t resolved_fields;        // std::atomic<FieldDexCachePair>*, array with
+    // num_resolved_fields_ elements.
+    uint64_t resolved_method_types;  // std::atomic<MethodTypeDexCachePair>* array with
+    // num_resolved_method_types_ elements.
+    uint64_t resolved_methods;       // ArtMethod*, array with num_resolved_methods_ elements.
+    uint64_t resolved_types;         // TypeDexCacheType*, array with num_resolved_types_ elements.
+    uint64_t strings;                // std::atomic<StringDexCachePair>*, array with num_strings_
+    // elements.
+
+    uint32_t num_resolved_fields;        // Number of elements in the resolved_fields_ array.
+    uint32_t num_resolved_method_types;  // Number of elements in the resolved_method_types_ array.
+    uint32_t num_resolved_methods;       // Number of elements in the resolved_methods_ array.
+    uint32_t num_resolved_types;         // Number of elements in the resolved_types_ array.
+    uint32_t num_strings;
 };
 
 
@@ -1419,7 +1446,7 @@ public:
     uint32_t reference_instance_offsets;
 };
 
-class MANAGED ArtMethod_21_22 :public ArtObject{
+class MANAGED ArtMethod_21_22 : public ArtObject {
 public:
     // Field order required by test "ValidateFieldOrderOfJavaCppUnionClasses".
     // The class we are a part of.
@@ -1480,6 +1507,40 @@ public:
     // the declaringClass.directMethods, for virtual methods the vtable and for interface methods the
     // ifTable.
     uint32_t method_index;
+};
+
+class ArtMethod_26_27 {
+public:
+// Field order required by test "ValidateFieldOrderOfJavaCppUnionClasses".
+    // The class we are a part of.
+    uint32_t declaring_class;
+
+    // Access flags; low 16 bits are defined by spec.
+    // Getting and setting this flag needs to be atomic when concurrency is
+    // possible, e.g. after this method's class is linked. Such as when setting
+    // verifier flags and single-implementation flag.
+    atomic<uint32_t> access_flags;
+
+    /* Dex file fields. The defining dex file is available via declaring_class_->dex_cache_ */
+
+    // Offset to the CodeItem.
+    uint32_t dex_code_item_offset;
+
+    // Index into method_ids of the dex file associated with this method.
+    uint32_t dex_method_index;
+
+    /* End of dex file fields. */
+
+    // Entry within a dispatch table for this method. For static/direct methods the index is into
+    // the declaringClass.directMethods, for virtual methods the vtable and for interface methods the
+    // ifTable.
+    uint16_t method_index;
+
+    // The hotness we measure for this method. Managed by the interpreter. Not atomic, as we allow
+    // missing increments: if the method is hot, we will see it eventually.
+    uint16_t hotness_count;
+
+    // Fake padding field gets inserted here.
 };
 
 

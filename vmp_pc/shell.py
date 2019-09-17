@@ -211,11 +211,11 @@ class Shell:
 
     def encrypt_shell_so(self):
         if not os.path.exists(self.tmp_out_path + '/lib'):
-            os.mkdir(self.tmp_out_path + '/lib')
             shutil.copytree(self.tmp_shell_path + '/lib', self.tmp_out_path + '/lib')
         else:
             abis = os.listdir(self.tmp_out_path + '/lib')
             if not abis:
+                os.remove(self.tmp_out_path + '/lib')
                 shutil.copytree(self.tmp_shell_path + '/lib', self.tmp_out_path + '/lib')
             for abi in abis:
                 in_path = self.tmp_shell_path + '/lib/' + abi + '/'

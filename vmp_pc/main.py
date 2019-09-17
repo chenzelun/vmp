@@ -8,7 +8,12 @@ from util.apk.apk import APK
 if __name__ == '__main__':
     # debug
     # clean tmp cache
-    for tmp_dir in [APK_TMP_OUT, APK_TMP_SHELL, APK_TMP_IN, APK_OUT, APK_IN, APK_SHELL]:
+    for tmp_dir in [APK_TMP_OUT,
+                    APK_TMP_SHELL,
+                    APK_TMP_IN,
+                    APK_OUT,
+                    APK_IN,
+                    APK_SHELL]:
         for tmp_file in os.listdir(tmp_dir):
             tmp_abs_path = tmp_dir + '/' + tmp_file
             if os.path.isdir(tmp_abs_path):
@@ -59,9 +64,7 @@ if __name__ == '__main__':
         APK.install(APK_OUT + '/' + os.listdir(APK_OUT)[0])
         APK.start(shell.in_apk_pkg_name)
         APK.uninstall(shell.in_apk_pkg_name)
-
         shell.remove_all_tmp()
-        print('ok')
 
         # debug
         # clean tmp cache
@@ -72,3 +75,5 @@ if __name__ == '__main__':
                     shutil.rmtree(tmp_abs_path)
                 else:
                     os.remove(tmp_abs_path)
+
+        print('ok')
