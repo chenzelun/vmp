@@ -4,7 +4,16 @@
       <w>abis</w>
       <w>bytearray</w>
       <w>clinit</w>
+      <w>jboolean</w>
+      <w>jbyte</w>
+      <w>jchar</w>
+      <w>jdouble</w>
+      <w>jfloat</w>
+      <w>jint</w>
+      <w>jlong</w>
       <w>jmethod</w>
+      <w>jobject</w>
+      <w>jshort</w>
       <w>jvalue</w>
       <w>logd</w>
       <w>shellapp</w>

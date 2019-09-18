@@ -1272,6 +1272,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
 
 
     bail:
+    delete vmMethodToCall;
     *pResult = retval;
     return;
 
@@ -1436,7 +1437,6 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
 #if defined(SHELL_LOG)
         vmMethodToCall = initVmMethodNoCode(methodToCall, vmMethodToCall);
         LOG_D("+++ super-virtual=%s.%s", vmMethodToCall->clazzDescriptor, vmMethodToCall->name);
-        deleteVmMethod(vmMethodToCall);
 #endif
 
         GOTO_invokeMethod(methodCallRange, methodToCall, vsrc1, vdst);
@@ -1479,7 +1479,6 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
 #if defined(SHELL_LOG)
         vmMethodToCall = initVmMethodNoCode(methodToCall, vmMethodToCall);
         LOG_D("+++ virtual=%s.%s", vmMethodToCall->clazzDescriptor, vmMethodToCall->name);
-        deleteVmMethod(vmMethodToCall);
 #endif
 
         GOTO_invokeMethod(methodCallRange, methodToCall, vsrc1, vdst);
@@ -1512,7 +1511,6 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
 #if defined(SHELL_LOG)
         vmMethodToCall = initVmMethodNoCode(methodToCall, vmMethodToCall);
         LOG_D("+++ direct=%s.%s", vmMethodToCall->clazzDescriptor, vmMethodToCall->name);
-        deleteVmMethod(vmMethodToCall);
 #endif
 
         GOTO_invokeMethod(methodCallRange, methodToCall, vsrc1, vdst);
@@ -1545,7 +1543,6 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
 #if defined(SHELL_LOG)
         vmMethodToCall = initVmMethodNoCode(methodToCall, vmMethodToCall);
         LOG_D("+++ static=%s.%s", vmMethodToCall->clazzDescriptor, vmMethodToCall->name);
-        deleteVmMethod(vmMethodToCall);
 #endif
 
         GOTO_invokeMethod(methodCallRange, methodToCall, vsrc1, vdst);
@@ -1588,7 +1585,6 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
         vmMethodToCall = initVmMethodNoCode(methodToCall, vmMethodToCall);
         LOG_D("+++ interface concrete=%s.%s", vmMethodToCall->clazzDescriptor,
               vmMethodToCall->name);
-        deleteVmMethod(vmMethodToCall);
 #endif
 
         GOTO_invokeMethod(methodCallRange, methodToCall, vsrc1, vdst);
@@ -1646,7 +1642,6 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
             }
         } else {
             u4 count = vsrc1 >> 4;
-
             assert(count <= 5);
             vars = new jvalue[MAX(1, count)]();
 
@@ -1707,7 +1702,6 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
                     retval.f = (*env).CallStaticFloatMethodA(methodToCallClazz, methodToCall, vars);
                     break;
 
-                case '[':
                 case 'L':
                     retval.l = (*env).CallStaticObjectMethodA(methodToCallClazz, methodToCall,
                                                               vars);
@@ -1727,12 +1721,12 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
                     break;
 
                 default:
-                    LOG_E("error method's return type...");
+                    LOG_E("error method's return type(%s)...", methodToCallShorty);
                     dvmThrowRuntimeException("error type of field... cc");
                     break;
             }
         } else if (methodToCallType == METHOD_SUPER) {
-            if (!                    checkForNull(thisPtr)                    ) {
+            if (!checkForNull(thisPtr)) {
                 GOTO_bail();
             }
 
@@ -1767,7 +1761,6 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
                                                                  methodToCall, vars);
                     break;
 
-                case '[':
                 case 'L':
                     retval.l = (*env).CallNonvirtualObjectMethodA(thisPtr, methodToCallClazz,
                                                                   methodToCall, vars);
@@ -1790,7 +1783,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
                     break;
 
                 default:
-                    LOG_E("error method's return type...");
+                    LOG_E("error method's return type(%s)...", methodToCallShorty);
                     dvmThrowRuntimeException("error type of field... cc");
                     break;
             }
@@ -1824,7 +1817,6 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
                     retval.f = (*env).CallFloatMethodA(thisPtr, methodToCall, vars);
                     break;
 
-                case '[':
                 case 'L':
                     retval.l = (*env).CallObjectMethodA(thisPtr, methodToCall, vars);
                     break;
@@ -1842,14 +1834,14 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
                     break;
 
                 default:
-                    LOG_E("error method's return type...");
+                    LOG_E("error method's return type(%s)...", methodToCallShorty);
                     dvmThrowRuntimeException("error type of field... cc");
                     break;
             }
         }
 // debug print invoke method
 #if defined(SHELL_LOG)
-        debugInvokeMethod(methodToCall, retval, vars);
+        debugInvokeMethod(methodToCall, retval, vars, vmMethodToCall);
 #endif
 
         delete[] vars;
@@ -2010,16 +2002,17 @@ jclass dvmResolveClass(const VmMethod *method, u4 classIdx, string *clazzNameStr
     const DexFile *pDexFile = method->dexFile;
     string tmp = dexStringByTypeIdx(pDexFile, classIdx);
     auto tmpLen = tmp.size();
+    const char *clazzName = tmp.data();
     if (tmpLen > 0 && tmp[0] == 'L') {
-        tmp = tmp.substr(1, tmpLen - 2);
-        LOG_E("tmp: %s", tmp.c_str());
+        tmp[tmpLen - 1] = '\0';
+        clazzName++;
     }
     if (clazzNameString != nullptr) {
-        *clazzNameString = tmp;
+        *clazzNameString = clazzName;
     }
-    LOG_D("--- resolving class %s (idx=%u referrer=%s)", tmp.data(), classIdx,
+    LOG_D("--- resolving class %s (idx=%u referrer=%s)", clazzName, classIdx,
           method->clazzDescriptor);
-    return (*env).FindClass(tmp.data());
+    return (*env).FindClass(clazzName);
 }
 
 
@@ -2511,11 +2504,23 @@ bool dvmResolveSetField(const VmMethod *method, u4 ifieldIdx, jobject obj, u8 re
     return true;
 }
 
-void debugInvokeMethod(jmethodID jniMethod, const jvalue retVal, const jvalue *vars) {
-    const auto *method = initVmMethodNoCode(jniMethod);
+#if defined(SHELL_LOG)
+
+void debugWriteDex(const VmMethod *method, const char *path) {
+    LOG_D("start writing dex to %s", path);
+    ofstream writer(path, ios::binary);
+    writer.write(reinterpret_cast<const char *>(method->dexFile->baseAddr),
+                 method->dexFile->pHeader->fileSize);
+    writer.flush();
+    writer.close();
+    LOG_D("finish dex to %s", path);
+}
+
+void debugInvokeMethod(jmethodID jniMethod, const jvalue retVal, const jvalue *vars,
+                       VmMethod *vmMethod) {
+    const auto *method = initVmMethodNoCode(jniMethod, vmMethod);
     const char *shorty = dexStringById(method->dexFile, method->protoId->shortyIdx);
     LOG_D("invoke method: %s .%s    %s", method->clazzDescriptor, method->name, shorty);
-    deleteVmMethod(method);
     switch (shorty[0]) {
         case 'I':
             LOG_D("return value (int): %d", retVal.i);
@@ -2558,7 +2563,8 @@ void debugInvokeMethod(jmethodID jniMethod, const jvalue retVal, const jvalue *v
             break;
 
         default:
-            LOG_E("error method's return type...");
+            LOG_E("error method's return type(%s)...", shorty);
+            debugWriteDex(method, (getDataDir(env) + "/classes.dex").data());
             assert(false);
             break;
     }
@@ -2570,8 +2576,8 @@ void debugInvokeMethod(jmethodID jniMethod, const jvalue retVal, const jvalue *v
                 break;
 
             case 'Z':
-                vars[var_i].z ? LOG_D("var(0x%02x) value (bool): true", var_i) : LOG_D(
-                        "var(0x%02x) value (bool): false", var_i);
+                vars[var_i].z ? LOG_D("var(0x%02x) value (bool): true", var_i)
+                              : LOG_D("var(0x%02x) value (bool): false", var_i);
                 break;
 
             case 'B':
@@ -2603,12 +2609,15 @@ void debugInvokeMethod(jmethodID jniMethod, const jvalue retVal, const jvalue *v
                 break;
 
             default:
-                LOG_E("error method's return type...");
+                LOG_E("error method's param type(%s)...", shorty);
+                debugWriteDex(method, (getDataDir(env) + "/classes.dex").data());
                 assert(false);
                 break;
         }
     }
 }
+
+#endif
 
 int dvmFindCatchBlock(const VmMethod *method, size_t pcOff, jobject exception) {
     const DexFile *pDexFile = method->dexFile;
@@ -2892,7 +2901,7 @@ dvmResolveMethodSign(const VmMethod *method, const DexProtoId *pDexProtoId, stri
 }
 
 const VmMethod *initVmMethod(jmethodID jniMethod) {
-    VmMethod *method = (VmMethod *) initVmMethodNoCode(jniMethod, nullptr);
+    VmMethod *method = initVmMethodNoCode(jniMethod);
     method->code = getCodeItem(method);
     return method;
 }
@@ -2932,6 +2941,7 @@ const DexFile *initDexFileInArt(const uint8_t *buf, size_t size) {
 }
 
 VmMethod *initVmMethodNoCode(jmethodID jniMethod, VmMethod *pVmMethod) {
+    assert(jniMethod != nullptr);
     VmMethod *method;
     if (pVmMethod == nullptr) {
         method = new VmMethod();
@@ -2949,8 +2959,8 @@ VmMethod *initVmMethodNoCode(jmethodID jniMethod, VmMethod *pVmMethod) {
         switch (android_get_device_api_level()) {
             case __ANDROID_API_L__:
             case __ANDROID_API_L_MR1__:
-                artClass = (ArtClass *)(uint64_t) ((ArtMethod_21_22 *) artMethod)->declaring_class;
-                artDexCache = (void *)(uint64_t) artClass->dex_cache;
+                artClass = (ArtClass *) (uint64_t) ((ArtMethod_21_22 *) artMethod)->declaring_class;
+                artDexCache = (void *) (uint64_t) artClass->dex_cache;
                 artDexFile = (ArtDexFile *) ((ArtDexCache_21_23 *) artDexCache)->dex_file;
                 method->dexFile = initDexFileInArt(artDexFile->begin, artDexFile->size);
                 pDexMethodId = dexGetMethodId(method->dexFile,
@@ -2963,8 +2973,8 @@ VmMethod *initVmMethodNoCode(jmethodID jniMethod, VmMethod *pVmMethod) {
                 break;
 
             case __ANDROID_API_M__:
-                artClass = (ArtClass *)(uint64_t) ((ArtMethod_23 *) artMethod)->declaring_class;
-                artDexCache = (void *)(uint64_t) artClass->dex_cache;
+                artClass = (ArtClass *) (uint64_t) ((ArtMethod_23 *) artMethod)->declaring_class;
+                artDexCache = (void *) (uint64_t) artClass->dex_cache;
                 artDexFile = (ArtDexFile *) ((ArtDexCache_21_23 *) artDexCache)->dex_file;
                 method->dexFile = initDexFileInArt(artDexFile->begin, artDexFile->size);
                 pDexMethodId = dexGetMethodId(method->dexFile,
@@ -2978,8 +2988,9 @@ VmMethod *initVmMethodNoCode(jmethodID jniMethod, VmMethod *pVmMethod) {
 
             case __ANDROID_API_O__:
             case __ANDROID_API_O_MR1__:
-                artClass = (ArtClass *) (uint64_t)((ArtMethod_26_27 *) artMethod)->declaring_class;
-                artDexCache = (void *)(uint64_t) artClass->dex_cache;
+            case __ANDROID_API_P__:
+                artClass = (ArtClass *) (uint64_t) ((ArtMethod_26_27 *) artMethod)->declaring_class;
+                artDexCache = (void *) (uint64_t) artClass->dex_cache;
                 artDexFile = (ArtDexFile *) ((ArtDexCache_26_27 *) artDexCache)->dex_file;
                 method->dexFile = initDexFileInArt(artDexFile->begin, artDexFile->size);
                 pDexMethodId = dexGetMethodId(method->dexFile,

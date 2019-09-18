@@ -1,7 +1,7 @@
 
                  
             //
-            // Created by ChenDalunlun on 2019-09-17.
+            // Created by ChenDalunlun on 2019-09-18.
             //
             
             #include "JNIFunc.h"
@@ -19,9 +19,9 @@
                 
                 LOG_D("jni function start: %s", __func__);
                 jclass clazz_type = (*env).GetObjectClass(instance);
-                jmethodID m_onClick = (*env).GetMethodID(clazz_type, "onClick", "(Landroid/view/View;)V");
+                jmethodID m_jni_method = (*env).GetMethodID(clazz_type, "onClick", "(Landroid/view/View;)V");
                 // init method
-                const VmMethod *method = initVmMethod(m_onClick);
+                const VmMethod *method = initVmMethod(m_jni_method);
                 jvalue retValue;
                 dvmCallMethod(env, instance, method, &retValue, param0);
                 deleteVmMethod(method);
@@ -36,9 +36,9 @@
                 
                 LOG_D("jni function start: %s", __func__);
                 jclass clazz_type = (*env).GetObjectClass(instance);
-                jmethodID m_onCreate = (*env).GetMethodID(clazz_type, "onCreate", "(Landroid/os/Bundle;)V");
+                jmethodID m_jni_method = (*env).GetMethodID(clazz_type, "onCreate", "(Landroid/os/Bundle;)V");
                 // init method
-                const VmMethod *method = initVmMethod(m_onCreate);
+                const VmMethod *method = initVmMethod(m_jni_method);
                 jvalue retValue;
                 dvmCallMethod(env, instance, method, &retValue, param0);
                 deleteVmMethod(method);
@@ -53,9 +53,9 @@
                 
                 LOG_D("jni function start: %s", __func__);
                 jclass clazz_type = (*env).GetObjectClass(instance);
-                jmethodID m_onCreate = (*env).GetMethodID(clazz_type, "onCreate", "(Landroid/os/Bundle;)V");
+                jmethodID m_jni_method = (*env).GetMethodID(clazz_type, "onCreate", "(Landroid/os/Bundle;)V");
                 // init method
-                const VmMethod *method = initVmMethod(m_onCreate);
+                const VmMethod *method = initVmMethod(m_jni_method);
                 jvalue retValue;
                 dvmCallMethod(env, instance, method, &retValue, param0);
                 deleteVmMethod(method);

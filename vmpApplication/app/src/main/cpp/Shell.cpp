@@ -132,14 +132,12 @@ void changeTopApplication() {
         jobject oContext1 = (*env).CallObjectMethod(oApplication, mGetApplicationContext);
         assert(oContext1 != nullptr);
         LOG_D("16");
-        while (true) {
-            auto isHasNext = (*env).CallBooleanMethod(oIterator, mHasNext);
-            if (isHasNext == JNI_FALSE) {
-                break;
-            }
+        while ((*env).CallBooleanMethod(oIterator, mHasNext)) {
             jobject oProviderClientRecord = (*env).CallObjectMethod(oIterator, mNext);
             jobject oMLocalProvider = (*env).GetObjectField(oProviderClientRecord, fMLocalProvider);
-            (*env).SetObjectField(oMLocalProvider, fMContext, oContext1);
+            if(oMLocalProvider!= nullptr){
+                (*env).SetObjectField(oMLocalProvider, fMContext, oContext1);
+            }
         }
         LOG_D("17");
         (*env).DeleteLocalRef(cActivityThread);

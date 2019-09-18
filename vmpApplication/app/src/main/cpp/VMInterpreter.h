@@ -79,7 +79,14 @@ inline s4 s4FromSwitchData(const void *switchData) {
 
 bool dvmCanPutArrayElement(const jobject obj, const jobject arrayObj);
 
-void debugInvokeMethod(jmethodID jniMethod, const jvalue retVal, const jvalue *vars);
+#if defined(SHELL_LOG)
+void
+debugInvokeMethod(jmethodID jniMethod, const jvalue retVal, const jvalue *vars,
+                  VmMethod *vmMethod = nullptr);
+
+void debugWriteDex(const VmMethod *method, const char *path);
+
+#endif
 
 int dvmFindCatchBlock(const VmMethod *method, size_t pcOff, jobject exception);
 

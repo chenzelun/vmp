@@ -1716,6 +1716,11 @@ class DexFile:
 class JNIFuncBuilder:
     log = logging.getLogger(__name__)
 
+    exclude_sys_func_names = {
+        r'<clinit>',
+        r'<init>'
+    }
+
     def __init__(self, dex_path: str):
         with open(dex_path, 'rb') as reader:
             dex_buf = reader.read()
@@ -1772,16 +1777,26 @@ class JNIFuncBuilder:
                 cur_method_idx = 0
                 for method in class_data.direct_methods:
                     cur_method_idx += method.method_idx_diff
-                    method_name = self.dex.get_method_name_by_method_id(cur_method_idx)
-                    if method.code and method_name != r'<clinit>' and method_name != r'<init>':
+                    if method.code and self.filter_method_sys_funcs(cur_method_idx):
                         copy_method = class_name, self.copy_and_native(method, cur_method_idx)
                         self.methods.append(copy_method)
                 cur_method_idx = 0
                 for method in class_data.virtual_methods:
                     cur_method_idx += method.method_idx_diff
-                    if method.code:
+                    if method.code and self.filter_method_sys_funcs(cur_method_idx):
                         copy_method = class_name, self.copy_and_native(method, cur_method_idx)
                         self.methods.append(copy_method)
+
+    def filter_method_sys_funcs(self, method_idx: int) -> bool:
+        method_name = self.dex.get_method_name_by_method_id(method_idx)
+        if method_name in self.exclude_sys_func_names:
+            return False
+
+        # exclude auto generate function
+        if '$' in method_name:
+            return False
+
+        return True
 
     def write_to(self, code_item_out_path: str,
                  dex_out_path: str,
@@ -1931,9 +1946,9 @@ class JNIFuncBuilder:
                     param += ', param{no}'.format(no=param_no)
 
             self.jni_func_buf += """
-                jmethodID m_{method_name} = (*env).GetMethodID(clazz_type, "{method_name}", "{method_sign}");
+                jmethodID m_jni_method = (*env).GetMethodID(clazz_type, "{method_name}", "{method_sign}");
                 // init method
-                const VmMethod *method = initVmMethod(m_{method_name});
+                const VmMethod *method = initVmMethod(m_jni_method);
                 jvalue retValue;
                 dvmCallMethod(env, instance, method, &retValue{param});
                 deleteVmMethod(method);

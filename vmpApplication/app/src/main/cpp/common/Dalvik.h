@@ -1313,23 +1313,19 @@ public:
     // because of our packing logic for 32 bit fields.
     uint32_t num_resolved_call_sites;
 
-    uint64_t dex_file;               // const DexFile*
-    uint64_t resolved_call_sites;    // GcRoot<CallSite>* array with num_resolved_call_sites_
+    uint64_t dex_file;
+    uint64_t resolved_call_sites;
 
-    // elements.
-    uint64_t resolved_fields;        // std::atomic<FieldDexCachePair>*, array with
-    // num_resolved_fields_ elements.
-    uint64_t resolved_method_types;  // std::atomic<MethodTypeDexCachePair>* array with
-    // num_resolved_method_types_ elements.
-    uint64_t resolved_methods;       // ArtMethod*, array with num_resolved_methods_ elements.
-    uint64_t resolved_types;         // TypeDexCacheType*, array with num_resolved_types_ elements.
-    uint64_t strings;                // std::atomic<StringDexCachePair>*, array with num_strings_
-    // elements.
+    uint64_t resolved_fields;
+    uint64_t resolved_method_types;
+    uint64_t resolved_methods;
+    uint64_t resolved_types;
+    uint64_t strings;
 
-    uint32_t num_resolved_fields;        // Number of elements in the resolved_fields_ array.
-    uint32_t num_resolved_method_types;  // Number of elements in the resolved_method_types_ array.
-    uint32_t num_resolved_methods;       // Number of elements in the resolved_methods_ array.
-    uint32_t num_resolved_types;         // Number of elements in the resolved_types_ array.
+    uint32_t num_resolved_fields;
+    uint32_t num_resolved_method_types;
+    uint32_t num_resolved_methods;
+    uint32_t num_resolved_types;
     uint32_t num_strings;
 };
 
