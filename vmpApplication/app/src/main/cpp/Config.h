@@ -35,6 +35,9 @@ struct ConfigFileProxy {
     string fakeClassesDexName;
     uint32_t fakeClassesDexBufSize;
     uint32_t fakeClassesDexBufOff;
+
+    uint32_t srcMethodInsnsSize;
+    uint32_t srcMethodInsnsOff;
 };
 
 void initConfigFileProxy(ConfigFileProxy **ppConfigFileProxy, JNIEnv *env);
@@ -67,6 +70,8 @@ const char *getDataBuf(uint32_t off, uint32_t size);
 const char *getCodeItemBuf();
 
 const char *getClassesDexBuf();
+
+const char* getMethodInsnsBuf();
 
 void buildFile(const string &srcPath, const string &desPath, unsigned int off, uint32_t length);
 

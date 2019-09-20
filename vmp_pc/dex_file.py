@@ -1,4 +1,5 @@
 import logging
+import random
 from abc import ABCMeta, abstractmethod
 from datetime import date
 from enum import IntEnum, unique
@@ -1480,7 +1481,7 @@ class DexHeader:
         self.data_size: int = 0
         self.data_off: int = 0
 
-    def parse(self, buf: bytes, map_list_item: MapListItem):
+    def parse(self, buf: bytes, map_list_item: MapListItem = None):
         self.map_list_item = map_list_item
         offset = Index(self.map_list_item.dex_offset)
         self.magic: bytes = buf[offset.index:offset.index + 0x08]
@@ -1713,6 +1714,13 @@ class DexFile:
         return self.get_string_by_string_idx(self.method_id[cur_method_idx].name_idx)
 
 
+class MethodInsns:
+    def __init__(self):
+        self.start = 0
+        self.insns_size = 0
+        self.insns = b''
+
+
 class JNIFuncBuilder:
     log = logging.getLogger(__name__)
 
@@ -1721,16 +1729,25 @@ class JNIFuncBuilder:
         r'<init>'
     }
 
+    exclude_package_name = [
+        r'android',
+        r'androidx',
+        r'java',
+
+    ]
+
     def __init__(self, dex_path: str):
         with open(dex_path, 'rb') as reader:
             dex_buf = reader.read()
         self.dex = DexFile().parse(dex_buf)
         self.code_item: List[List[Union[str, bytes]]] = []
-        self.dex_buf: bytes = b''
+        self.dex_buf: bytearray = bytearray()
         self.code_items_files_buf: bytes = b''
+        self.method_insns_files_buf: bytes = b''
         self.jni_func_buf: str = ''
         self.jni_func_header_buf: str = ''
         self.methods: List[Tuple[str, EncodedMethod]] = []
+        self.insns: List[Tuple[str, List[MethodInsns]]] = []
 
     def filter_methods(self, *, exclude_pkg_names: List[str] = None, include_pkg_names: List[str] = None,
                        exclude_class_names: Set[str] = None):
@@ -1798,16 +1815,56 @@ class JNIFuncBuilder:
 
         return True
 
+    def reset_method_insns(self, dex_buf: bytearray, dex_file: DexFile, exclude_pkg_names: List[str] = None):
+        for class_def in dex_file.class_def:
+            if class_def.class_data:
+                class_name = dex_file.get_string_by_type_idx(class_def.class_idx)
+                for pkg_name in exclude_pkg_names:
+                    if class_name.startswith(pkg_name):
+                        break
+                else:
+                    insns: List[MethodInsns] = []
+                    for method in class_def.class_data.direct_methods:
+                        if method.code and method.code.insns_size:
+                            JNIFuncBuilder.copy_and_reset_insns(method.code, dex_buf, insns)
+                    for method in class_def.class_data.virtual_methods:
+                        if method.code and method.code.insns_size:
+                            JNIFuncBuilder.copy_and_reset_insns(method.code, dex_buf, insns)
+                    if len(insns) > 0:
+                        self.insns.append((class_name, insns))
+        assert len(dex_buf) == dex_file.dex_header.file_size
+        # update sign and checksum
+        dex_buf[0x0c:0x20] = sha1(dex_buf[0x20:]).digest()
+        dex_buf[0x08:0x0c] = pack('<I', adler32(dex_buf[0x0c:]))
+
+    @staticmethod
+    def copy_and_reset_insns(code: CodeItem, dex_buf: bytearray, result: List):
+        method_insns = MethodInsns()
+        method_insns.start = code.dex_offset + 0x10
+        method_insns.insns_size = code.insns_size
+        method_insns.insns = code.insns
+        result.append(method_insns)
+
+        # reset random number
+        filled = [random.randint(0, 255) for _ in range(code.insns_size * 2)]
+        dex_buf[method_insns.start:method_insns.start + method_insns.insns_size * 2] = filled
+
     def write_to(self, code_item_out_path: str,
+                 method_insns_out_path: str,
                  dex_out_path: str,
                  jni_func_out_path: str,
                  jni_func_header_out_path: str):
         self.dex_buf = bytearray(self.dex.to_bytes())
+        self.reset_method_insns(self.dex_buf, self.dex, self.exclude_package_name)
         with open(dex_out_path, 'wb') as writer:
             writer.write(self.dex_buf)
             writer.flush()
 
-        # self.set_code_item_zero(dex_out_path)
+        self.format_method_insns()
+        with open(method_insns_out_path, 'wb') as writer:
+            writer.write(self.method_insns_files_buf)
+            writer.flush()
+
         self.format_code_item()
         with open(code_item_out_path, 'wb') as writer:
             writer.write(self.code_items_files_buf)
@@ -1825,10 +1882,47 @@ class JNIFuncBuilder:
             writer.write(self.jni_func_header_buf)
             writer.flush()
 
+    def format_method_insns(self):
+        """
+
+        :return: the bytes of method insns struct
+                struct_size:                                                    :uint_32
+                struct:
+                    class_name_size                                             :uint_32
+                    class_name.reverse                                          :str (end with '\0')
+                    method_size                                                 :uint_32
+                    method_struct:
+                        start                                                   :uint_32
+                        insns_size                                              :uint_32
+                        insns                                                   :short[insns_size]
+        """
+
+        method_insns_file_buf = bytearray()
+        method_insns_file_buf.extend(pack('<I', len(self.insns)))
+        for class_name, method_insns in self.insns:
+            class_name = bytearray(class_name, encoding='ascii')
+            self.log.debug('class name0: %s', class_name)
+            class_name.reverse()
+            self.log.debug('class name : %s', class_name)
+            class_name.append(0)
+            method_insns_file_buf.extend(pack('<I', len(class_name)))
+            method_insns_file_buf.extend(class_name)
+            method_insns_file_buf.extend(pack('<I', len(method_insns)))
+            self.log.debug('method size: %d', len(method_insns))
+            for method in method_insns:
+                method_insns_file_buf.extend(pack('<I', method.start))
+                method_insns_file_buf.extend(pack('<I', method.insns_size))
+                method_insns_file_buf.extend(method.insns)
+                self.log.debug('      start: %d', method.start)
+                self.log.debug('       size: %d', method.insns_size)
+                self.log.debug('      insns: %s', method.insns)
+
+        self.method_insns_files_buf = bytes(method_insns_file_buf)
+
     def format_code_item(self):
         """
 
-        :return: the bytes of code item index struct
+        :return: the bytes of code item struct
                 struct_size:                                                    :uint_32
                 struct:
                     key_size                                                    :uint_32
@@ -1837,8 +1931,8 @@ class JNIFuncBuilder:
                     method.code.to_bytes()                                      :str
         """
 
-        code_items_files_buf = bytearray()
-        code_items_files_buf.extend(pack('<I', len(self.methods)))
+        code_items_file_buf = bytearray()
+        code_items_file_buf.extend(pack('<I', len(self.methods)))
         for class_name, method in self.methods:
             method_id: MethodIdItem = self.dex.method_id[method.method_idx_diff]
             method_name = self.dex.get_string_by_string_idx(method_id.name_idx)
@@ -1851,18 +1945,18 @@ class JNIFuncBuilder:
             key.append(0)
             key_size = len(key)
             self.log.debug('      key size: %d', key_size)
-            code_items_files_buf.extend(pack('<I', key_size))
-            code_items_files_buf.extend(key)
+            code_items_file_buf.extend(pack('<I', key_size))
+            code_items_file_buf.extend(key)
 
             # reserved 16B for two pointers (64 bit operating system) after insns_size,
             # in order to read bytes by c++ pointer conveniently.
             value = method.code.to_bytes(Index(0))
             value = value[:0x10] + bytes(0x10) + value[0x10:]
             value_size = len(value)
-            code_items_files_buf.extend(pack('<I', value_size))
-            code_items_files_buf.extend(value)
+            code_items_file_buf.extend(pack('<I', value_size))
+            code_items_file_buf.extend(value)
 
-        self.code_items_files_buf = bytes(code_items_files_buf)
+        self.code_items_files_buf = bytes(code_items_file_buf)
 
     def generate_jni_func(self, jni_func_header_name: str):
         self.jni_func_buf = r"""

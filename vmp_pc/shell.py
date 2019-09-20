@@ -21,7 +21,7 @@ class Shell:
 
     log = logging.getLogger(__name__)
 
-    def __init__(self, no_shell: bool = True):
+    def __init__(self):
         # src apk
         self.in_apk_name: str = ''
         self.in_apk_path: str = ''
@@ -32,20 +32,12 @@ class Shell:
         self.in_apk_path: str = APK_IN + '/' + in_apk
 
         # shell apk
-        if no_shell:
-            self.shell_apk_pkg_name: str = ''
-            self.shell_apk_name: str = ''
-            self.shell_apk_path: str = ''
-            self.shell_apk_name: str = ''
+        self.shell_apk_pkg_name: str = ''
+        self.shell_apk_name: str = ''
+        self.shell_apk_path: str = ''
+        self.shell_apk_name: str = ''
 
-            self.tmp_shell_path: str = ''
-        else:
-            self.shell_apk_pkg_name: str = ''
-            self.shell_apk_name: str = os.listdir(APK_SHELL)[0]
-            self.shell_apk_path: str = APK_SHELL + '/' + self.shell_apk_name
-            self.shell_apk_name: str = self.shell_apk_name[:-4]
-
-            self.tmp_shell_path: str = APK_TMP_SHELL + '/' + self.shell_apk_name
+        self.tmp_shell_path: str = ''
 
         # tmp files
         self.tmp_in_path: str = ''
@@ -54,6 +46,7 @@ class Shell:
         # file name
         self.in_classes_dex_file_name: str = 'classes.dex'
         self.code_item_file_name: str = 'code_items.bin'
+        self.method_insns_file_name: str = 'method_insns.bin'
         self.jni_func_file_name: str = 'JNIFunc.cpp'
         self.jni_func_header_file_name: str = 'JNIFunc.h'
         self.config_file_name: str = 'config.bin'
@@ -263,6 +256,7 @@ class Shell:
         builder = JNIFuncBuilder(in_path + '/classes.dex')
         builder.filter_methods(include_pkg_names=include_pkg_names, exclude_class_names=exclude_class_names)
         builder.write_to(code_item_out_path=out_path + '/' + self.code_item_file_name,
+                         method_insns_out_path=out_path + '/' + self.method_insns_file_name,
                          dex_out_path=out_path + '/' + self.in_classes_dex_file_name,
                          jni_func_out_path=out_path + '/' + self.jni_func_file_name,
                          jni_func_header_out_path=out_path + '/' + self.jni_func_header_file_name)
@@ -343,7 +337,7 @@ class Shell:
     def write_config_file(self):
         """
         config file format:
-            index:   # index size: 5*2*4B
+            index:   # index size: 6*2*4B
                 application_name_size:                          uint32
                 application_name_off:                           uint32
 
@@ -359,16 +353,20 @@ class Shell:
                 code_item_file_size:                            uint32
                 code_item_file_off:                             uint32
 
+                method_insns_file_size:                         uint32
+                method_insns_file_off:                          uint32
+
             data:
                 application_name:                               char[]
                 fake_classes_dex_file_name:                     char[]
                 fake_classes_dex_buf_name:                      char[]
                 classes_dex_file:                               char[]
                 code_item_file:                                 char[]
+                method_insns_file:                              char[]
         :return:
         """
 
-        index_size = 5 * 2 * 4
+        index_size = 6 * 2 * 4
         index = bytearray()
         data = bytearray()
 
@@ -395,11 +393,18 @@ class Shell:
         data_cur_offset = index_size + len(data)
         with open(self.tmp_out_path + '/assets/' + self.code_item_file_name, 'rb') as reader:
             code_item_buf = reader.read()
-        index.extend(pack('<2I', len(code_item_buf) + 1, data_cur_offset))
+        index.extend(pack('<2I', len(code_item_buf), data_cur_offset))
         data.extend(code_item_buf)
+
+        data_cur_offset = index_size + len(data)
+        with open(self.tmp_out_path + '/assets/' + self.method_insns_file_name, 'rb') as reader:
+            method_insns_buf = reader.read()
+        index.extend(pack('<2I', len(method_insns_buf), data_cur_offset))
+        data.extend(method_insns_buf)
 
         os.remove(self.tmp_out_path + '/assets/' + self.in_classes_dex_file_name)
         os.remove(self.tmp_out_path + '/assets/' + self.code_item_file_name)
+        os.remove(self.tmp_out_path + '/assets/' + self.method_insns_file_name)
         with open(self.tmp_out_path + '/assets/' + self.config_file_name, 'wb') as writer:
             writer.write(index)
             writer.write(data)

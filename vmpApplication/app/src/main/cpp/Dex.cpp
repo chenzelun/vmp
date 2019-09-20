@@ -5,6 +5,7 @@
 #include "Dex.h"
 #include <sys/stat.h>
 #include <unistd.h>
+#include <algorithm>
 
 extern DexFileHelper *gDexFileHelper;
 
@@ -35,6 +36,7 @@ void hookDvmRawDexFileOpen() {
     }
 }
 
+
 void loadDexFromMemory() {
     LOG_D("start, loadDexFromMemory()");
     JNIEnv *env = gDexFileHelper->env;
@@ -64,7 +66,9 @@ void loadDexFromMemory() {
                                                    "([B)Ljava/nio/ByteBuffer;");
         jobject oBuf = (*env).CallStaticObjectMethod(cByteBuffer, mWrap, byteArray);
         jmethodID mDexFileInit = (*env).GetMethodID(cDexFile, "<init>", "(Ljava/nio/ByteBuffer;)V");
+        hookDexFileOpen();
         oDexFile = (*env).NewObject(cDexFile, mDexFileInit, oBuf);
+        (*env).ReleaseByteArrayElements(byteArray, nullptr, JNI_FALSE);
     } else {
         if (android_get_device_api_level() >= __ANDROID_API_L__ &&
             android_get_device_api_level() <= __ANDROID_API_N_MR1__) {
@@ -297,9 +301,12 @@ void initDexFileHelper(DexFileHelper **ppDexFileHelper, const ConfigFileProxy *p
     pDexFileHelper->dexLen = pConfigFileProxy->srcClassesDexSize;
     pDexFileHelper->codeItemBuf = getCodeItemBuf();
     pDexFileHelper->codeItemLen = pConfigFileProxy->srcCodeItemSize;
+    pDexFileHelper->methodInsnsBuf = getMethodInsnsBuf();
+    pDexFileHelper->methodInsnsLen = pConfigFileProxy->srcMethodInsnsSize;
 
     buildFakeClassesDexFile(pDexFileHelper->fakeClassesDexName);
 
+    // init code item
     const char *cur = pDexFileHelper->codeItemBuf;
     uint32_t size = *(uint32_t *) cur;
     cur += 4;
@@ -335,6 +342,36 @@ void initDexFileHelper(DexFileHelper **ppDexFileHelper, const ConfigFileProxy *p
         LOG_D("         insnsSize: %d", pCodeItemData->insnsSize);
     }
     LOG_D("code item size: %d, map size: %lu", size, pDexFileHelper->codeItem.size());
+
+    // init method insns
+    cur = gDexFileHelper->methodInsnsBuf;
+    size = *(uint32_t *) cur;
+    cur += 4;
+    for (int i = 0; i < size; i++) {
+        uint32_t classNameSize = *(uint32_t *) cur;
+        cur += 4;
+        string className = cur;
+        LOG_D("class name: %s", className.data());
+        cur += classNameSize;
+        uint32_t methodSize = *(uint32_t *) cur;
+        cur += 4;
+        vector<MethodInsns *> *method = new vector<MethodInsns *>();
+        for (int j = 0; j < methodSize; j++) {
+            MethodInsns *methodInsns = (MethodInsns *) cur;
+            cur += 0x08 + methodInsns->size * 2;
+            method->push_back(methodInsns);
+            LOG_D("      start: %d", methodInsns->start);
+            LOG_D("       size: %d", methodInsns->size);
+            LOG_D("      insns: %08x %08x %08x %08x",
+                  *(uint32_t *) (methodInsns->insns),
+                  *(uint32_t *) (methodInsns->insns + 0x04),
+                  *(uint32_t *) (methodInsns->insns + 0x08),
+                  *(uint32_t *) (methodInsns->insns + 0x0c));
+        }
+        gDexFileHelper->methodInsns[className] = method;
+    }
+    LOG_D("method insns size: %d, map size: %lu", size, pDexFileHelper->methodInsns.size());
+
     *ppDexFileHelper = pDexFileHelper;
     LOG_D("finish, initDexFileHelper(DexFucker **ppDexFileHelper, const ConfigFileProxy *pConfigFileProxy)");
 }
@@ -405,9 +442,9 @@ void *myMmap(void *addr, size_t size, int prot, int flags, int fd, off_t offset)
         LOG_D("myMmap");
         LOG_D("dexLen:                  0x%08x", gDexFileHelper->dexLen);
         LOG_D("page_aligned_byte_count: 0x%08lx", size);
-        auto *retValue = (uint8_t *) (sysMmap(addr, size,
-                                              PROT_READ | PROT_WRITE,
-                                              MAP_ANONYMOUS | MAP_PRIVATE, -1, 0));
+        uint8_t *retValue = (uint8_t *) (sysMmap(addr, size,
+                                                 PROT_READ | PROT_WRITE,
+                                                 MAP_ANONYMOUS | MAP_PRIVATE, -1, 0));
         assert(retValue != MAP_FAILED);
         memcpy(retValue, gDexFileHelper->dexBuf + offset, gDexFileHelper->dexLen);
         size_t off = size - gDexFileHelper->dexLen - offset;
@@ -416,9 +453,13 @@ void *myMmap(void *addr, size_t size, int prot, int flags, int fd, off_t offset)
         }
         mprotect(retValue, size, prot);
         LOG_D("mmap(%p), success", (void *) retValue);
+
+        delete[]gDexFileHelper->dexBuf;
+        gDexFileHelper->dexBuf = reinterpret_cast<char *>(retValue);
         return retValue;
     }
     return sysMmap(addr, size, prot, flags, fd, offset);
+
 }
 
 bool hookMmap() {
@@ -440,6 +481,37 @@ bool myDexFileOpen_21_23(const char *filename, const char *location, string *err
     return sysDexFileOpen_21_23(filename, location, error_msg, dex_files);
 }
 
+void *(*sysDexFileOpen_26_27)(const string &location, uint32_t checksum, void *map, bool verify,
+                              bool verify_checksum, string *error_msg) = nullptr;
+
+void *myDexFileOpen_26_27(const string &location, uint32_t checksum, ArtMemMap *map, bool verify,
+                          bool verify_checksum, string *error_msg) {
+    if (strncmp((char *) ((DexHeader *) map->begin)->signature,
+                (char *) ((DexHeader *) gDexFileHelper->dexBuf)->signature, 20) == 0) {
+        delete[]gDexFileHelper->dexBuf;
+        gDexFileHelper->dexBuf = (char *) map->begin;
+        LOG_D("update gDexFileHelper->dexBuf");
+    }
+    return sysDexFileOpen_26_27(location, checksum, map, verify, verify_checksum, error_msg);
+}
+
+void *
+(*sysArtDexFileLoaderOpen_28)(void *thiz, const string &location, uint32_t checksum, void *map,
+                              bool verify, bool verify_checksum, string *error_msg) = nullptr;
+
+void *myArtDexFileLoaderOpen_28(void *thiz, const string &location, uint32_t checksum,
+                                ArtMemMap *map, bool verify, bool verify_checksum,
+                                string *error_msg) {
+    if (strncmp((char *) ((DexHeader *) map->begin)->signature,
+                (char *) ((DexHeader *) gDexFileHelper->dexBuf)->signature, 20) == 0) {
+        delete[]gDexFileHelper->dexBuf;
+        gDexFileHelper->dexBuf = (char *) map->begin;
+        LOG_D("update gDexFileHelper->dexBuf");
+    }
+    return sysArtDexFileLoaderOpen_28(thiz, location, checksum, map, verify, verify_checksum,
+                                      error_msg);
+}
+
 bool hookDexFileOpen() {
     static bool hookFlag = false;
     if (!hookFlag) {
@@ -458,6 +530,18 @@ bool hookDexFileOpen() {
                                             reinterpret_cast<void **>(&sysDexFileOpen_21_23));
                 break;
 
+            case __ANDROID_API_O__:
+            case __ANDROID_API_O_MR1__:
+                hookFlag = HookNativeInline((getSystemLibDir() + "/libart.so").data(),
+                                            "_ZN3art7DexFile4OpenERKNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEEjNS1_10unique_ptrINS_6MemMapENS1_14default_deleteISB_EEEEbbPS7_",
+                                            reinterpret_cast<void *>(myDexFileOpen_26_27),
+                                            reinterpret_cast<void **>(&sysDexFileOpen_26_27));
+
+            case __ANDROID_API_P__:
+                hookFlag = HookNativeInline((getSystemLibDir() + "/libart.so").data(),
+                                            "_ZNK3art16ArtDexFileLoader4OpenERKNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEEjNS1_10unique_ptrINS_6MemMapENS1_14default_deleteISB_EEEEbbPS7_",
+                                            reinterpret_cast<void *>(myArtDexFileLoaderOpen_28),
+                                            reinterpret_cast<void **>(&sysArtDexFileLoaderOpen_28));
 
             default:
                 assert(false);
@@ -536,5 +620,84 @@ bool hookOpenDexFilesFromOat() {
 
     }
     return hookFlag;
+}
+
+void fillBackMethodInsns(const char *descriptor) {
+    string className = descriptor;
+    LOG_D("link class: %s", descriptor);
+    reverse(className.begin(), className.end());
+    auto it = gDexFileHelper->methodInsns.find(className);
+    if (it != gDexFileHelper->methodInsns.end()) {
+        vector<MethodInsns *> *insns = it->second;
+        if (isArtVm(gDexFileHelper->env)) {
+            DexHeader *header = (DexHeader *) gDexFileHelper->dexBuf;
+            mprotect(gDexFileHelper->dexBuf, header->fileSize, PROT_READ | PROT_WRITE | PROT_EXEC);
+        }
+
+        for (auto methodInsns:*insns) {
+            memcpy(gDexFileHelper->dexBuf + methodInsns->start,
+                   methodInsns->insns,
+                   methodInsns->size);
+        }
+
+        LOG_D("fill back method insns: %s", descriptor);
+        return;
+    }
+    LOG_E("not found class: %s", descriptor);
+}
+
+bool
+(*sysLinkClass_21_28)(void *thiz, void *self, const char *descriptor, void *klass, void *interface,
+                      void *new_class_out) = nullptr;
+
+bool myLinkClass_21_28(void *thiz, void *self, const char *descriptor, void *klass, void *interface,
+                       void *new_class_out) {
+    fillBackMethodInsns(descriptor);
+    return sysLinkClass_21_28(thiz, self, descriptor, klass, interface, new_class_out);
+}
+
+bool (*sysLinkClass_19)(ClassObject *clazz) = nullptr;
+
+bool myLinkClass_19(ClassObject *clazz) {
+    fillBackMethodInsns(clazz->descriptor);
+    return sysLinkClass_19(clazz);
+}
+
+void hookClassLink() {
+    static bool hookFlag = false;
+    if (!hookFlag) {
+        if (!isArtVm(gDexFileHelper->env)) {
+            hookFlag = HookNativeInline("/system/lib/libdvm.so",
+                                        "_Z12dvmLinkClassP11ClassObject",
+                                        reinterpret_cast<void *>(myLinkClass_19),
+                                        reinterpret_cast<void **>(&sysLinkClass_19));
+        } else {
+            switch (android_get_device_api_level()) {
+                case __ANDROID_API_L__:
+                case __ANDROID_API_L_MR1__:
+                    hookFlag = HookNativeInline((getSystemLibDir() + "/libart.so").data(),
+                                                "_ZN3art11ClassLinker9LinkClassEPNS_6ThreadEPKcNS_6HandleINS_6mirror5ClassEEENS5_INS6_11ObjectArrayIS7_EEEEPPS7_",
+                                                reinterpret_cast<void *>(myLinkClass_21_28),
+                                                reinterpret_cast<void **>(&sysLinkClass_21_28));
+                    break;
+
+                case __ANDROID_API_M__:
+                case __ANDROID_API_N__:
+                case __ANDROID_API_N_MR1__:
+                case __ANDROID_API_O__:
+                case __ANDROID_API_O_MR1__:
+                case __ANDROID_API_P__:
+                    hookFlag = HookNativeInline((getSystemLibDir() + "/libart.so").data(),
+                                                "_ZN3art11ClassLinker9LinkClassEPNS_6ThreadEPKcNS_6HandleINS_6mirror5ClassEEENS5_INS6_11ObjectArrayIS7_EEEEPNS_13MutableHandleIS7_EE",
+                                                reinterpret_cast<void *>(myLinkClass_21_28),
+                                                reinterpret_cast<void **>(&sysLinkClass_21_28));
+                    break;
+
+                default:
+                    assert(false);
+            }
+        }
+    }
+
 }
 

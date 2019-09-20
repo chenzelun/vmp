@@ -55,6 +55,12 @@ void initConfigFile() {
     LOG_D("srcCodeItemSize: %d, srcCodeItemOff: %d", gConfigFileProxy->srcCodeItemSize,
           gConfigFileProxy->srcCodeItemOff);
 
+    // read method insns
+    readSizeAndOff(reader, offset, &gConfigFileProxy->srcMethodInsnsSize,
+                   &gConfigFileProxy->srcMethodInsnsOff, buf);
+    LOG_D("srcCodeItemSize: %d, srcCodeItemOff: %d", gConfigFileProxy->srcMethodInsnsSize,
+          gConfigFileProxy->srcMethodInsnsOff);
+
     reader.close();
     LOG_D("finish, initConfigFile()");
 }
@@ -246,5 +252,10 @@ const string getSystemLibDir() {
 #else
     return "/system/lib";
 #endif
+}
+
+const char *getMethodInsnsBuf() {
+    LOG_D("getMethodInsnsBuf()");
+    return getDataBuf(gConfigFileProxy->srcMethodInsnsOff, gConfigFileProxy->srcMethodInsnsSize);
 }
 

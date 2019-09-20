@@ -19,8 +19,6 @@ void changeTopApplication() {
     static jobject oApplication = nullptr;
     if (oApplication == nullptr) {
         // config dynamic loading env
-        LOG_D("0");
-        loadDexFromMemory();
         LOG_D("1");
         // get main thread's object
         jclass cActivityThread = (*env).FindClass("android/app/ActivityThread");
@@ -181,6 +179,8 @@ jint JNI_OnLoad(JavaVM *vm, void *unused) {
     initConfigFile();
     initDexFileHelper(&gDexFileHelper, gConfigFileProxy);
 
+    loadDexFromMemory();
+    hookClassLink();
     // change src_app's application
     changeTopApplication();
     return JNI_VERSION_1_4;

@@ -23,6 +23,7 @@ add_library( # Sets the name of the library.
         JNIFunc.cpp
         Util.cpp
         VMInterpreter.cpp
+        So.cpp
         )
 
 

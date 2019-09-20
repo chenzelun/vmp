@@ -882,6 +882,17 @@ enum {
     kDexParseContinueOnError = (1 << 1),
 };
 
+class ArtMemMap {
+public:
+    const string name;
+    uint8_t *begin;  // Start of data. May be changed by AlignBy.
+    size_t size;  // Length of data.
+
+    void *base_begin;  // Page-aligned base address. May be changed by AlignBy.
+    size_t base_size;  // Length of mapping. May be changed by RemapAtEnd (ie Zygote).
+    int prot;  // Protection of the 
+};
+
 
 /*
  * Use this to keep track of mapped segments.
@@ -1306,7 +1317,7 @@ public:
     uint64_t dex_file;
 };
 
-class MANAGED ArtDexCache_26_27 : public ArtObject {
+class MANAGED ArtDexCache_26_28 : public ArtObject {
 public:
     uint32_t location;
     // Number of elements in the call_sites_ array. Note that this appears here
@@ -1505,7 +1516,7 @@ public:
     uint32_t method_index;
 };
 
-class ArtMethod_26_27 {
+class ArtMethod_26_28 {
 public:
 // Field order required by test "ValidateFieldOrderOfJavaCppUnionClasses".
     // The class we are a part of.

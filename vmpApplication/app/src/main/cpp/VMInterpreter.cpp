@@ -2919,9 +2919,13 @@ const CodeItemData *getCodeItem(const VmMethod *method) {
 
 const DexFile *initDexFileInArt(const uint8_t *buf, size_t size) {
     auto *pDexHeader = (DexHeader *) buf;
-//    LOG_D("dex marge: %s", buf);
+    LOG_D("dex marge: %s", buf);
+    if (strncmp((char *) buf, "cdex", 4) == 0) {
+        auto* pOdexHeader = (DexOptHeader*)buf;
+        pDexHeader = (DexHeader *)(buf + pOdexHeader->dexOffset);
+    }
     auto *pDexFile = new DexFile();
-    pDexFile->baseAddr = buf;
+    pDexFile->baseAddr = (u1 *)pDexHeader;
     pDexFile->pHeader = pDexHeader;
     pDexFile->pStringIds = (const DexStringId *) (pDexFile->baseAddr +
                                                   pDexHeader->stringIdsOff);
@@ -2989,18 +2993,19 @@ VmMethod *initVmMethodNoCode(jmethodID jniMethod, VmMethod *pVmMethod) {
             case __ANDROID_API_O__:
             case __ANDROID_API_O_MR1__:
             case __ANDROID_API_P__:
-                artClass = (ArtClass *) (uint64_t) ((ArtMethod_26_27 *) artMethod)->declaring_class;
+                artClass = (ArtClass *) (uint64_t) ((ArtMethod_26_28 *) artMethod)->declaring_class;
                 artDexCache = (void *) (uint64_t) artClass->dex_cache;
-                artDexFile = (ArtDexFile *) ((ArtDexCache_26_27 *) artDexCache)->dex_file;
+                artDexFile = (ArtDexFile *) ((ArtDexCache_26_28 *) artDexCache)->dex_file;
                 method->dexFile = initDexFileInArt(artDexFile->begin, artDexFile->size);
                 pDexMethodId = dexGetMethodId(method->dexFile,
-                                              ((ArtMethod_26_27 *) artMethod)->dex_method_index);
+                                              ((ArtMethod_26_28 *) artMethod)->dex_method_index);
                 method->protoId = dexGetProtoId(method->dexFile, pDexMethodId->protoIdx);
-                method->accessFlags = ((ArtMethod_26_27 *) artMethod)->access_flags;
+                method->accessFlags = ((ArtMethod_26_28 *) artMethod)->access_flags;
                 method->clazzDescriptor = dexStringByTypeIdx(method->dexFile,
                                                              pDexMethodId->classIdx);
                 method->name = dexStringById(method->dexFile, pDexMethodId->nameIdx);
                 break;
+
             default:
                 LOG_E("error android api level: %d", android_get_device_api_level());
                 assert(false);

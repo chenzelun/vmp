@@ -47,8 +47,6 @@ dvmResolveMethodSign(const VmMethod *method, const DexMethodId *pMethodId, strin
 void
 dvmResolveMethodSign(const VmMethod *method, const DexProtoId *pDexProtoId, string *methodSign);
 
-inline u4 dvmFloatToU4(float val);
-
 jstring dvmResolveString(const VmMethod *method, u4 stringIdx);
 
 jclass dvmResolveClass(const VmMethod *method, u4 classIdx);

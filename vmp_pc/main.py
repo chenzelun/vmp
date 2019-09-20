@@ -32,7 +32,7 @@ if __name__ == '__main__':
         # cp in apk
         # shutil.copyfile(in_apk_path, APK_IN + r'\app-debug.apk')
 
-        shell = Shell(no_shell=True)
+        shell = Shell()
         shell.unzip_in_apk()
         shell.encrypt_in_dex()
 

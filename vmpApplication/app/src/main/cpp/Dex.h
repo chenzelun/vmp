@@ -27,6 +27,12 @@ struct CodeItemData {
     u1 *triesAndHandlersBuf;
 };
 
+struct MethodInsns {
+    u4 start;
+    u4 size;
+    u1 insns[1];
+};
+
 struct DexFileHelper {
     JNIEnv *env;
     string fakeClassesDexName;
@@ -37,6 +43,10 @@ struct DexFileHelper {
     const char *codeItemBuf;
     uint32_t codeItemLen;
     map<string, CodeItemData *> codeItem;
+
+    const char *methodInsnsBuf;
+    uint32_t methodInsnsLen;
+    map<string, vector<MethodInsns *> *> methodInsns;
 };
 
 
@@ -77,7 +87,23 @@ bool
 myDexFileOpen_21_23(const char *filename, const char *location, string *error_msg,
                     vector<void *> *dex_files);
 
+void *myDexFileOpen_26_27(const string &location, uint32_t checksum, ArtMemMap *map, bool verify,
+                          bool verify_checksum, string *error_msg);
+
+void *myArtDexFileLoaderOpen_28(void *thiz, const string &location, uint32_t checksum,
+                                ArtMemMap *map, bool verify, bool verify_checksum,
+                                string *error_msg);
+
 bool hookDexFileOpen();
+
+void fillBackMethodInsns(const char* descriptor);
+
+bool myLinkClass_21_28(void *thiz, void *self, const char *descriptor, void *klass, void *interface,
+                       void *new_class_out);
+
+bool myLinkClass_19(ClassObject *clazz);
+
+void hookClassLink();
 
 
 /*
