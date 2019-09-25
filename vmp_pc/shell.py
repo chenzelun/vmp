@@ -1,5 +1,5 @@
 import shutil
-from struct import pack
+from struct import pack, unpack_from
 from typing import List
 from xml.etree import ElementTree
 from zipfile import ZipFile
@@ -9,6 +9,74 @@ from env_settings import *
 from util.AXMLUtil.axml import AndroidXML
 from util.apk.apk import APK
 from util.apktool.apktool import ApkTool
+
+
+class SoText:
+    log = logging.getLogger(__name__)
+
+    def __init__(self, start=0, size=0, data=b''):
+        self.start = start
+        self.size = size
+        self.data = data
+
+    @classmethod
+    def get_data_by_section_name(cls, so_buf: bytearray, name: str):
+        offset = unpack_from('<I', so_buf, 0x20)[0]
+        sizeof, num, shtrndx = unpack_from('<3H', so_buf, 0x2e)
+        name_base = unpack_from('<I', so_buf, offset + sizeof * shtrndx + 0x10)[0]
+
+        for cur in range(offset, offset + num * sizeof, sizeof):
+            name_off = name_base + unpack_from('<I', so_buf, cur)[0]
+            name_end = so_buf.find(0, name_off)
+            section_name = str(so_buf[name_off:name_end], encoding='ascii')
+            if section_name == name:
+                start, size = unpack_from('<2I', so_buf, cur + 0x10)
+                return SoText(start, size, so_buf[start: start + size])
+
+        cls.log.error('no found section name: %s', name)
+        return None
+
+    @classmethod
+    def get64_data_by_section_name(cls, so_buf: bytearray, name: str):
+        offset = unpack_from('<Q', so_buf, 0x28)[0]
+        sizeof, num, shtrndx = unpack_from('<3H', so_buf, 0x3a)
+        name_base = unpack_from('<Q', so_buf, offset + sizeof * shtrndx + 0x18)[0]
+
+        for cur in range(offset, offset + num * sizeof, sizeof):
+            name_off = name_base + unpack_from('<I', so_buf, cur)[0]
+            name_end = so_buf.find(0, name_off)
+            section_name = str(so_buf[name_off:name_end], encoding='ascii')
+            if section_name == name:
+                start, size = unpack_from('<2Q', so_buf, cur + 0x18)
+                return SoText(start, size, so_buf[start: start + size])
+
+        cls.log.error('no found section name: %s', name)
+        return None
+
+    @staticmethod
+    def format_so_file(name: str, data: bytearray):
+        buf = bytearray()
+        buf.extend(pack('<I', len(name) + 1))
+        buf.extend(bytes(name, encoding='ascii'))
+        buf.append(0)
+        buf.extend(pack('<I', len(data)))
+        buf.extend(data)
+        return buf
+
+    @staticmethod
+    def format_so_text(name: str, texts):
+        buf = bytearray()
+        buf.extend(pack('<I', len(name) + 1))
+        buf.extend(bytes(name, encoding='ascii'))
+        buf.append(0)
+        text_buf = bytearray()
+        text_buf.extend(pack('<I', len(texts)))
+        for text in texts:
+            text_buf.extend(pack('2I', text.start, text.size))
+            text_buf.extend(text.data)
+        buf.extend(pack('<I', len(text_buf)))
+        buf.extend(text_buf)
+        return buf
 
 
 class Shell:
@@ -30,6 +98,8 @@ class Shell:
         in_apk: str = os.listdir(APK_IN)[0]
         self.in_apk_name: str = in_apk[:-4]
         self.in_apk_path: str = APK_IN + '/' + in_apk
+        self.in_apk_so_buf: bytearray = bytearray()
+        self.in_apk_so_text_buf: bytearray = bytearray()
 
         # shell apk
         self.shell_apk_pkg_name: str = ''
@@ -220,8 +290,76 @@ class Shell:
         self.log.info('encrypt_shell_so finish...')
 
     def encrypt_in_so(self):
-        if os.path.exists(self.tmp_in_path + '/lib'):
-            shutil.copytree(self.tmp_in_path + '/lib', self.tmp_out_path + '/lib')
+        # in_apk_so_buf format:
+        #       file_size                           uint32
+        #       so_file:
+        #           so_file_name_size               uint32
+        #           so_file_name                    str
+        #           so_file_buf_size                uint32
+        #           so_file_buf                     bytes
+        self.in_apk_so_buf.extend(pack('<I', 0))
+
+        # in_apk_so_text_buf format:
+        #       file_size                           uint32
+        #       so_file:
+        #           so_file_name_size               uint32
+        #           so_file_name                    str
+        #           so_text_sizeof                  uint32
+        #           so_texts:
+        #               so_text_size                uint32
+        #               so_text:
+        #                   so_text_start           uint32
+        #                   so_text_size            uint32
+        #                   so_text_buf             bytes
+        self.in_apk_so_text_buf.extend(pack('<I', 0))
+        file_size = 0
+        section_names = [
+            '.text',
+        ]
+        if os.path.exists(self.tmp_in_path + '/lib/armeabi-v7a'):
+            prefix = 'armeabi-v7a_'
+            for file_name in os.listdir(self.tmp_in_path + '/lib/armeabi-v7a'):
+                file_size += 1
+                dst_name = prefix + file_name
+                src_name = self.tmp_in_path + '/lib/armeabi-v7a/' + file_name
+                so_texts = []
+                with open(src_name, 'rb') as reader:
+                    so_file_buf = bytearray(reader.read())
+
+                self.log.debug("so file: %s", dst_name)
+                for section_name in section_names:
+                    text = SoText.get_data_by_section_name(so_file_buf, section_name)
+                    if text:
+                        so_texts.append(text)
+                        self.log.debug("start: %d, size: %d", text.start, text.size)
+                        so_file_buf[text.start:text.start + text.size] = bytes(text.size)
+
+                self.in_apk_so_buf.extend(SoText.format_so_file(dst_name, so_file_buf))
+                self.in_apk_so_text_buf.extend(SoText.format_so_text(dst_name, so_texts))
+
+        if os.path.exists(self.tmp_in_path + '/lib/arm64-v8a'):
+            prefix = 'arm64-v8a_'
+            for file_name in os.listdir(self.tmp_in_path + '/lib/arm64-v8a'):
+                file_size += 1
+                dst_name = prefix + file_name
+                src_name = self.tmp_in_path + '/lib/arm64-v8a/' + file_name
+                so_texts = []
+                with open(src_name, 'rb') as reader:
+                    so_file_buf = bytearray(reader.read())
+
+                self.log.debug("so file: %s", dst_name)
+                for section_name in section_names:
+                    text = SoText.get64_data_by_section_name(so_file_buf, section_name)
+                    if text:
+                        so_texts.append(text)
+                        self.log.debug("start: %d, size: %d", text.start, text.size)
+                        so_file_buf[text.start:text.start + text.size] = bytes(text.size)
+
+                self.in_apk_so_buf.extend(SoText.format_so_file(dst_name, so_file_buf))
+                self.in_apk_so_text_buf.extend(SoText.format_so_text(dst_name, so_texts))
+
+        self.in_apk_so_buf[0:4] = pack('<I', file_size)
+        self.in_apk_so_text_buf[0:4] = pack('<I', file_size)
 
     def encrypt_in_dex(self):
         in_path, in_pkg_name, out_path = self.tmp_in_path, self.in_apk_pkg_name, self.tmp_out_path
@@ -247,14 +385,22 @@ class Shell:
             'R$styleable',
             'R',
         }
-        pkg_clazz_path = 'L' + in_pkg_name.replace('.', '/') + '/'
-        exclude_class_names = {(pkg_clazz_path + x + ';') for x in exclude_class_names}
+        pkg_clazz_path = in_pkg_name.replace('.', '/') + '/'
+        exclude_class_names = [(pkg_clazz_path + x) for x in exclude_class_names]
+
+        exclude_package_name = [
+            r'android',
+            r'androidx',
+            r'java',
+        ]
 
         # TODO Test
         include_pkg_names = [in_pkg_name]
 
         builder = JNIFuncBuilder(in_path + '/classes.dex')
         builder.filter_methods(include_pkg_names=include_pkg_names, exclude_class_names=exclude_class_names)
+        builder.dex_buf = bytearray(builder.dex.to_bytes())
+        builder.reset_method_insns(exclude_pkg_names=exclude_package_name, exclude_cls_names=exclude_class_names)
         builder.write_to(code_item_out_path=out_path + '/' + self.code_item_file_name,
                          method_insns_out_path=out_path + '/' + self.method_insns_file_name,
                          dex_out_path=out_path + '/' + self.in_classes_dex_file_name,
@@ -337,7 +483,7 @@ class Shell:
     def write_config_file(self):
         """
         config file format:
-            index:   # index size: 6*2*4B
+            index:   # index size: 8*2*4B
                 application_name_size:                          uint32
                 application_name_off:                           uint32
 
@@ -346,6 +492,12 @@ class Shell:
 
                 fake_classes_dex_file_buf_size:                 uint32
                 fake_classes_dex_file_buf_off:                  uint32
+
+                so_file_buf_size:                               uint32
+                so_file_buf_off:                                uint32
+
+                so_file_text_buf_size:                          uint32
+                so_file_text_buf_off:                           uint32
 
                 classes_dex_file_size:                          uint32
                 classes_dex_file_off:                           uint32
@@ -359,14 +511,16 @@ class Shell:
             data:
                 application_name:                               char[]
                 fake_classes_dex_file_name:                     char[]
-                fake_classes_dex_buf_name:                      char[]
+                fake_classes_dex_buf:                           char[]
+                so_file_buf:                                    char[]
+                so_file_text_buf:                               char[]
                 classes_dex_file:                               char[]
                 code_item_file:                                 char[]
                 method_insns_file:                              char[]
         :return:
         """
 
-        index_size = 6 * 2 * 4
+        index_size = 8 * 2 * 4
         index = bytearray()
         data = bytearray()
 
@@ -383,6 +537,14 @@ class Shell:
         data_cur_offset = index_size + len(data)
         index.extend(pack('<2I', len(self.fake_classes_dex_file_buf), data_cur_offset))
         data.extend(self.fake_classes_dex_file_buf)
+
+        data_cur_offset = index_size + len(data)
+        index.extend(pack('<2I', len(self.in_apk_so_buf), data_cur_offset))
+        data.extend(self.in_apk_so_buf)
+
+        data_cur_offset = index_size + len(data)
+        index.extend(pack('<2I', len(self.in_apk_so_text_buf), data_cur_offset))
+        data.extend(self.in_apk_so_text_buf)
 
         data_cur_offset = index_size + len(data)
         with open(self.tmp_out_path + '/assets/' + self.in_classes_dex_file_name, 'rb') as reader:

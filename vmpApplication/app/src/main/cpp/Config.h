@@ -38,6 +38,12 @@ struct ConfigFileProxy {
 
     uint32_t srcMethodInsnsSize;
     uint32_t srcMethodInsnsOff;
+
+    uint32_t srcSoBufSize;
+    uint32_t srcSoBufOff;
+
+    uint32_t srcSoTextSize;
+    uint32_t srcSoTextOff;
 };
 
 void initConfigFileProxy(ConfigFileProxy **ppConfigFileProxy, JNIEnv *env);
@@ -56,6 +62,8 @@ const string &getBaseFilesDir(JNIEnv *env);
 
 const string &getLibDir(JNIEnv *env);
 
+const string &getAppDefaultLibDir(JNIEnv *env);
+
 const string &getOdexDir(JNIEnv *env);
 
 const string &getDexDir(JNIEnv *env);
@@ -64,19 +72,22 @@ void buildFileSystem();
 
 void copyFileFromAssets(JNIEnv *env, const string &configFileName, const string &dstFilePath);
 
-
 const char *getDataBuf(uint32_t off, uint32_t size);
 
 const char *getCodeItemBuf();
 
 const char *getClassesDexBuf();
 
-const char* getMethodInsnsBuf();
+const char *getMethodInsnsBuf();
 
 void buildFile(const string &srcPath, const string &desPath, unsigned int off, uint32_t length);
 
 void buildFakeClassesDexFile(const string &path);
 
 const string getSystemLibDir();
+
+const char *getSoBuf();
+
+const char *getSoTextBuf();
 
 #endif //SHELLAPPLICATION_CONFIG_H

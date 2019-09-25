@@ -42,6 +42,20 @@ void initConfigFile() {
     LOG_D("fakeClassesDexBufSize: %d, fakeClassesDexBufOff: %d",
           gConfigFileProxy->fakeClassesDexBufSize, gConfigFileProxy->fakeClassesDexBufOff);
 
+    // read so file buf
+    readSizeAndOff(reader, offset, &gConfigFileProxy->srcSoBufSize,
+            &gConfigFileProxy->srcSoBufOff, buf);
+    offset += SIZE_OF_DOUBLE_UINT32;
+    LOG_D("srcSoBufSize: %d, srcSoBufSize: %d",
+          gConfigFileProxy->srcSoBufSize, gConfigFileProxy->srcSoBufSize);
+
+    // read so file text buf
+    readSizeAndOff(reader, offset, &gConfigFileProxy->srcSoTextSize,
+                   &gConfigFileProxy->srcSoTextOff, buf);
+    offset += SIZE_OF_DOUBLE_UINT32;
+    LOG_D("srcSoTextSize: %d, srcSoTextOff: %d",
+          gConfigFileProxy->srcSoTextSize, gConfigFileProxy->srcSoTextOff);
+
     // read classes dex
     readSizeAndOff(reader, offset, &gConfigFileProxy->srcClassesDexSize,
                    &gConfigFileProxy->srcClassesDexOff, buf);
@@ -52,13 +66,15 @@ void initConfigFile() {
     // read code item
     readSizeAndOff(reader, offset, &gConfigFileProxy->srcCodeItemSize,
                    &gConfigFileProxy->srcCodeItemOff, buf);
+    offset += SIZE_OF_DOUBLE_UINT32;
     LOG_D("srcCodeItemSize: %d, srcCodeItemOff: %d", gConfigFileProxy->srcCodeItemSize,
           gConfigFileProxy->srcCodeItemOff);
 
     // read method insns
     readSizeAndOff(reader, offset, &gConfigFileProxy->srcMethodInsnsSize,
                    &gConfigFileProxy->srcMethodInsnsOff, buf);
-    LOG_D("srcCodeItemSize: %d, srcCodeItemOff: %d", gConfigFileProxy->srcMethodInsnsSize,
+    offset += SIZE_OF_DOUBLE_UINT32;
+    LOG_D("srcMethodInsnsSize: %d, srcMethodInsnsOff: %d", gConfigFileProxy->srcMethodInsnsSize,
           gConfigFileProxy->srcMethodInsnsOff);
 
     reader.close();
@@ -80,8 +96,8 @@ void readSizeAndOff(ifstream &reader, uint32_t offset, uint32_t *pRetSize, uint3
     reader.read(buf, SIZE_OF_DOUBLE_UINT32);
     *pRetSize = *(uint32_t *) buf;
     *pRetOffset = *(uint32_t *) (buf + 4);
-    LOG_D("readSizeAndOff, offset: %d, ret_size: %d, ret_offset: %d",
-          offset, *pRetSize, *pRetOffset);
+//    LOG_D("readSizeAndOff, offset: %d, ret_size: %d, ret_offset: %d",
+//          offset, *pRetSize, *pRetOffset);
 }
 
 const string &getBaseFilesDir(JNIEnv *env) {
@@ -155,6 +171,7 @@ void buildFileSystem() {
             getDataDir(gConfigFileProxy->env),
             getOdexDir(gConfigFileProxy->env),
             getDexDir(gConfigFileProxy->env),
+            getLibDir(gConfigFileProxy->env),
     };
 
     for (auto &p : path) {
@@ -206,7 +223,7 @@ const char *getDataBuf(uint32_t off, uint32_t size) {
     reader.seekg(off, ios::beg);
     reader.read(buf, size);
     reader.close();
-    LOG_D("getDataBuf(uint32_t off: %d, uint32_t size: %d)", off, size);
+//    LOG_D("getDataBuf(uint32_t off: %d, uint32_t size: %d)", off, size);
     return buf;
 }
 
@@ -257,5 +274,25 @@ const string getSystemLibDir() {
 const char *getMethodInsnsBuf() {
     LOG_D("getMethodInsnsBuf()");
     return getDataBuf(gConfigFileProxy->srcMethodInsnsOff, gConfigFileProxy->srcMethodInsnsSize);
+}
+
+const char *getSoBuf() {
+    LOG_D("getSoBuf()");
+    return getDataBuf(gConfigFileProxy->srcSoBufOff, gConfigFileProxy->srcSoBufSize);
+}
+
+const char *getSoTextBuf() {
+    LOG_D("getSoTextBuf()");
+    return getDataBuf(gConfigFileProxy->srcSoTextOff, gConfigFileProxy->srcSoTextSize);
+}
+
+const string &getAppDefaultLibDir(JNIEnv *env) {
+    static string lib;
+    if(lib.empty()){
+        lib = getBaseFilesDir(env);
+        lib = lib.substr(0, lib.size()-sizeof("/files")) + "/lib";
+        LOG_D("getAppDefaultLibDir first: %s", lib.data());
+    }
+    return lib;
 }
 

@@ -5,6 +5,7 @@
 #include "Util.h"
 #include "Config.h"
 #include "Dex.h"
+#include "So.h"
 #include <android/api-level.h>
 
 
@@ -12,7 +13,13 @@
 JNIEnv *env = nullptr;
 ConfigFileProxy *gConfigFileProxy = nullptr;
 DexFileHelper *gDexFileHelper = nullptr;
+SoFileHelper* gSoFileHelper = nullptr;
 
+
+void __attribute__((constructor)) beforeJNI_OnLoad(){
+    LOG_D("init");
+    //hookMmap();
+}
 
 void changeTopApplication() {
     LOG_D("start, changeTopApplication()");
@@ -29,7 +36,7 @@ void changeTopApplication() {
                                                                        mCurrentActivityThread);
         LOG_D("2");
         jstring sAppName = (*env).NewStringUTF(gConfigFileProxy->srcApkApplicationName.data());
-        //有值的话调用该Applicaiton
+        //有值的话调用该 Application
         jfieldID fMBoundApplication = (*env).GetFieldID(cActivityThread, "mBoundApplication",
                                                         "Landroid/app/ActivityThread$AppBindData;");
         jobject oMBoundApplication = (*env).GetObjectField(oCurrentActivityThread,
@@ -178,7 +185,12 @@ jint JNI_OnLoad(JavaVM *vm, void *unused) {
     buildFileSystem();
     initConfigFile();
     initDexFileHelper(&gDexFileHelper, gConfigFileProxy);
+    initSoFileHelper(&gSoFileHelper, gConfigFileProxy);
 
+    buildSoFile();
+
+    hookMmap();
+    updateNativeLibraryDirectories(env, getLibDir(env));
     loadDexFromMemory();
     hookClassLink();
     // change src_app's application

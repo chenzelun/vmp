@@ -44,4 +44,8 @@ string getSystemGetProperty(JNIEnv *env, const char *propertyName);
 
 bool isArtVm(JNIEnv *env);
 
+void debugMaps();
+
+const char* getLinkerPath();
+
 #endif //SHELLAPPLICATION_UTIL_H

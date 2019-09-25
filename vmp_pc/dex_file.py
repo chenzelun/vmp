@@ -5,7 +5,7 @@ from datetime import date
 from enum import IntEnum, unique
 from hashlib import sha1
 from struct import unpack_from, pack
-from typing import List, Dict, Union, Tuple, Set
+from typing import List, Dict, Union, Tuple
 from zlib import adler32
 
 
@@ -1729,13 +1729,6 @@ class JNIFuncBuilder:
         r'<init>'
     }
 
-    exclude_package_name = [
-        r'android',
-        r'androidx',
-        r'java',
-
-    ]
-
     def __init__(self, dex_path: str):
         with open(dex_path, 'rb') as reader:
             dex_buf = reader.read()
@@ -1750,7 +1743,7 @@ class JNIFuncBuilder:
         self.insns: List[Tuple[str, List[MethodInsns]]] = []
 
     def filter_methods(self, *, exclude_pkg_names: List[str] = None, include_pkg_names: List[str] = None,
-                       exclude_class_names: Set[str] = None):
+                       exclude_class_names: List[str] = None):
         """
         filter the methods
         The relationship between 'exclude_pkg_names' and 'include_pkg_names' is nor.
@@ -1815,27 +1808,35 @@ class JNIFuncBuilder:
 
         return True
 
-    def reset_method_insns(self, dex_buf: bytearray, dex_file: DexFile, exclude_pkg_names: List[str] = None):
-        for class_def in dex_file.class_def:
-            if class_def.class_data:
-                class_name = dex_file.get_string_by_type_idx(class_def.class_idx)
-                for pkg_name in exclude_pkg_names:
-                    if class_name.startswith(pkg_name):
-                        break
-                else:
-                    insns: List[MethodInsns] = []
-                    for method in class_def.class_data.direct_methods:
-                        if method.code and method.code.insns_size:
-                            JNIFuncBuilder.copy_and_reset_insns(method.code, dex_buf, insns)
-                    for method in class_def.class_data.virtual_methods:
-                        if method.code and method.code.insns_size:
-                            JNIFuncBuilder.copy_and_reset_insns(method.code, dex_buf, insns)
-                    if len(insns) > 0:
-                        self.insns.append((class_name, insns))
-        assert len(dex_buf) == dex_file.dex_header.file_size
+    def reset_method_insns(self, *, exclude_pkg_names: List[str] = None, exclude_cls_names: List[str] = None):
+        exclude_names: List[str] = []
+        if exclude_pkg_names:
+            exclude_names.extend(exclude_pkg_names)
+        if exclude_cls_names:
+            exclude_names.extend(exclude_cls_names)
+        exclude_names = []
+        if exclude_names:
+            for class_def in self.dex.class_def:
+                if class_def.class_data:
+                    class_name = self.dex.get_string_by_type_idx(class_def.class_idx)
+                    for pkg_name in exclude_names:
+                        if class_name.startswith('L' + pkg_name):
+                            break
+                    else:
+                        self.log.debug("class: %s", class_name)
+                        insns: List[MethodInsns] = []
+                        for method in class_def.class_data.direct_methods:
+                            if method.code and method.code.insns_size:
+                                JNIFuncBuilder.copy_and_reset_insns(method.code, self.dex_buf, insns)
+                        for method in class_def.class_data.virtual_methods:
+                            if method.code and method.code.insns_size:
+                                JNIFuncBuilder.copy_and_reset_insns(method.code, self.dex_buf, insns)
+                        if len(insns) > 0:
+                            self.insns.append((class_name, insns))
+        assert len(self.dex_buf) == self.dex.dex_header.file_size
         # update sign and checksum
-        dex_buf[0x0c:0x20] = sha1(dex_buf[0x20:]).digest()
-        dex_buf[0x08:0x0c] = pack('<I', adler32(dex_buf[0x0c:]))
+        self.dex_buf[0x0c:0x20] = sha1(self.dex_buf[0x20:]).digest()
+        self.dex_buf[0x08:0x0c] = pack('<I', adler32(self.dex_buf[0x0c:]))
 
     @staticmethod
     def copy_and_reset_insns(code: CodeItem, dex_buf: bytearray, result: List):
@@ -1854,8 +1855,6 @@ class JNIFuncBuilder:
                  dex_out_path: str,
                  jni_func_out_path: str,
                  jni_func_header_out_path: str):
-        self.dex_buf = bytearray(self.dex.to_bytes())
-        self.reset_method_insns(self.dex_buf, self.dex, self.exclude_package_name)
         with open(dex_out_path, 'wb') as writer:
             writer.write(self.dex_buf)
             writer.flush()

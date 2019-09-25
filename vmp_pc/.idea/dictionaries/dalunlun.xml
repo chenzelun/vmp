@@ -2,8 +2,10 @@
   <dictionary name="dalunlun">
     <words>
       <w>abis</w>
+      <w>armeabi</w>
       <w>bytearray</w>
       <w>clinit</w>
+      <w>insns</w>
       <w>jboolean</w>
       <w>jbyte</w>
       <w>jchar</w>

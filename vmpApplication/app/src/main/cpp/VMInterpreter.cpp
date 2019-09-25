@@ -2919,13 +2919,14 @@ const CodeItemData *getCodeItem(const VmMethod *method) {
 
 const DexFile *initDexFileInArt(const uint8_t *buf, size_t size) {
     auto *pDexHeader = (DexHeader *) buf;
-    LOG_D("dex marge: %s", buf);
+    LOG_D("dex marge: %c%c%c%c", buf[0], buf[1], buf[2], buf[3]);
+    LOG_D("dex marge: %c%c%c%c", buf[4], buf[5], buf[6], buf[7]);
     if (strncmp((char *) buf, "cdex", 4) == 0) {
-        auto* pOdexHeader = (DexOptHeader*)buf;
-        pDexHeader = (DexHeader *)(buf + pOdexHeader->dexOffset);
+        auto *pOdexHeader = (DexOptHeader *) buf;
+        pDexHeader = (DexHeader *) (buf + pOdexHeader->dexOffset);
     }
     auto *pDexFile = new DexFile();
-    pDexFile->baseAddr = (u1 *)pDexHeader;
+    pDexFile->baseAddr = (u1 *) pDexHeader;
     pDexFile->pHeader = pDexHeader;
     pDexFile->pStringIds = (const DexStringId *) (pDexFile->baseAddr +
                                                   pDexHeader->stringIdsOff);

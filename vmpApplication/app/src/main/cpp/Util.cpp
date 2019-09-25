@@ -8,6 +8,7 @@
 #include <dlfcn.h>
 #include "Util.h"
 #include "include/AndHook.h"
+#include <fstream>
 
 bool HookNativeInline(const char *soPath, const char *signature, void *my_func, void **ori_func) {
     LOG_D("start HookNativeInline...");
@@ -187,3 +188,26 @@ string getSystemGetProperty(JNIEnv *env, const char *propertyName) {
         return (*env).GetStringUTFChars(reinterpret_cast<jstring>(result), JNI_FALSE);
     }
 }
+
+void debugMaps() {
+    ifstream reader("/proc/self/maps");
+    string buf;
+    while(true){
+        getline(reader, buf);
+        if(buf.size()<=0){
+            LOG_D("debugMaps ok.");
+            reader.close();
+            return;
+        }
+        LOG_D("%s", buf.data());
+    }
+}
+
+const char *getLinkerPath() {
+#if defined(__aarch64__)
+    return "/system/bin/linker64";
+#else
+    return "/system/bin/linker";
+#endif
+}
+

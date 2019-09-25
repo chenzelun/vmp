@@ -4,13 +4,21 @@
       <w>addr</w>
       <w>aget</w>
       <w>aput</w>
+      <w>cdex</w>
       <w>chkdiv</w>
       <w>cmpx</w>
       <w>cppcoreguidelines</w>
       <w>ctype</w>
       <w>defs</w>
       <w>descr</w>
+      <w>dlextinfo</w>
+      <w>dlextinfobb</w>
+      <w>dlflags</w>
+      <w>dlopen</w>
+      <w>eeee</w>
+      <w>extinfo</w>
       <w>fdlinkstr</w>
+      <w>fileb</w>
       <w>fstat</w>
       <w>ftype</w>
       <w>ifield</w>
@@ -20,24 +28,35 @@
       <w>iput</w>
       <w>jclass</w>
       <w>jtype</w>
+      <w>klass</w>
+      <w>landroid</w>
       <w>ldalvik</w>
       <w>libart</w>
+      <w>libdl</w>
+      <w>libdvm</w>
       <w>ljava</w>
       <w>logd</w>
       <w>mmap</w>
+      <w>mprotect</w>
       <w>msgs</w>
       <w>odex</w>
       <w>opname</w>
+      <w>preloads</w>
       <w>proc</w>
       <w>prot</w>
       <w>regsize</w>
       <w>retval</w>
       <w>rsub</w>
+      <w>rtld</w>
       <w>sget</w>
       <w>shellapplication</w>
+      <w>soinfo</w>
+      <w>soinfos</w>
       <w>sput</w>
+      <w>strncmp</w>
       <w>teensy</w>
       <w>thiz</w>
+      <w>uint</w>
       <w>unop</w>
       <w>ushr</w>
       <w>vdst</w>

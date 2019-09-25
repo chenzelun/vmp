@@ -87,16 +87,9 @@ bool
 myDexFileOpen_21_23(const char *filename, const char *location, string *error_msg,
                     vector<void *> *dex_files);
 
-void *myDexFileOpen_26_27(const string &location, uint32_t checksum, ArtMemMap *map, bool verify,
-                          bool verify_checksum, string *error_msg);
-
-void *myArtDexFileLoaderOpen_28(void *thiz, const string &location, uint32_t checksum,
-                                ArtMemMap *map, bool verify, bool verify_checksum,
-                                string *error_msg);
-
 bool hookDexFileOpen();
 
-void fillBackMethodInsns(const char* descriptor);
+void fillBackMethodInsns(const char *descriptor);
 
 bool myLinkClass_21_28(void *thiz, void *self, const char *descriptor, void *klass, void *interface,
                        void *new_class_out);
@@ -105,6 +98,9 @@ bool myLinkClass_19(ClassObject *clazz);
 
 void hookClassLink();
 
+bool myCheckMagicAndVersion_26_27(void *thiz, string *error_msg);
+
+void hookCheckMagicAndVersion();
 
 /*
  * Reads a signed LEB128 value, updating the given pointer to point
