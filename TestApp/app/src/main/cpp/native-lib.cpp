@@ -15,3 +15,9 @@ Java_com_chend_testapp_MainActivity_stringFromJNI(
     string hello = "Hello from C++";
     return env->NewStringUTF(hello.c_str());
 }
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_chend_testapp_MainActivity_size(JNIEnv *env, jobject thiz, jobjectArray a) {
+    // TODO: implement size()
+    return (*env).GetArrayLength(a);
+}

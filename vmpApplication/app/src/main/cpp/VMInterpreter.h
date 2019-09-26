@@ -53,6 +53,8 @@ jclass dvmResolveClass(const VmMethod *method, u4 classIdx);
 
 jclass dvmResolveClass(const VmMethod *method, u4 classIdx, string *clazzNameString);
 
+jclass dvmResolvePrimitiveClass(char type, string *clazzNameString);
+
 jarray dvmAllocArrayByClass(const s4 length, const VmMethod *method, u4 classIdx);
 
 

@@ -29,6 +29,11 @@ public class MainActivity extends AppCompatActivity {
                 startActivity(intent);
             }
         });
+
+        for (int i = 0; i < 20; i++) {
+            System.out.println(" " + i + ": " + size(new double[(i + 1) * 1024][1024]));
+        }
+        System.out.println("ok");
     }
 
     /**
@@ -36,4 +41,6 @@ public class MainActivity extends AppCompatActivity {
      * which is packaged with this application.
      */
     public native String stringFromJNI();
+
+    public native int size(double[][] a);
 }

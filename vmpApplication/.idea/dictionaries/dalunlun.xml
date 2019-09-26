@@ -4,6 +4,7 @@
       <w>addr</w>
       <w>aget</w>
       <w>aput</w>
+      <w>arrray</w>
       <w>cdex</w>
       <w>chkdiv</w>
       <w>cmpx</w>
