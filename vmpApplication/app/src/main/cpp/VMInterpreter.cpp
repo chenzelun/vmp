@@ -21,7 +21,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
     const u2 *curInsns = curMethod->code->insns;
     u2 inst;                    // current instruction
     /* instruction decoding */
-    u4 ref;               // 16 or 32-bit quantity fetched directly
+    u4 ref;                     // 16 or 32-bit quantity fetched directly
     u2 vsrc1, vsrc2, vdst;      // usually used for register indexes
     jvalue retval;
     retval.j = 0;
@@ -32,6 +32,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
     jmethodID methodToCall = nullptr;
     VmMethod *vmMethodToCall = new VmMethod();
     MethodType methodToCallType = METHOD_UNKNOWN;
+    const char *methodToCallShorty = nullptr;
     jclass methodToCallClazz = nullptr;
 
     pc = curInsns;
@@ -302,12 +303,15 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
             ref = FETCH(1);
             LOG_D("|const-class v%d class@0x%04x", vdst, ref);
             // get clazz from dex by clazzId
-            clazz = dvmResolveClass(curMethod, ref);
+            const char* desc = nullptr;
+            clazz = dvmResolveClass(curMethod, ref, nullptr, &desc);
+            LOG_D("class descriptor: %s", desc);
             if (clazz == nullptr) {
                 GOTO_exceptionThrown();
             }
             SET_REGISTER_AS_OBJECT(vdst, clazz);
             FINISH(2);
+            (*env).DeleteLocalRef(clazz);
         OP_END
 
             // 0x1d-1e
@@ -358,7 +362,9 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
             obj = GET_REGISTER_AS_OBJECT(vsrc1);
             if (obj != nullptr) {
                 //  get clazz from dex by clazzId
-                clazz = dvmResolveClass(curMethod, ref);
+                const char* desc = nullptr;
+                clazz = dvmResolveClass(curMethod, ref, nullptr, &desc);
+                LOG_D("class descriptor: %s", desc);
                 if (clazz == nullptr) {
                     GOTO_exceptionThrown();
                 }
@@ -367,6 +373,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
                     dvmThrowClassCastException((*env).GetObjectClass(obj), clazz);
                     GOTO_exceptionThrown();
                 }
+                (*env).DeleteLocalRef(clazz);
             }
             FINISH(2);
         OP_END
@@ -384,7 +391,9 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
                 SET_REGISTER(vdst, 0);
             } else {
                 // get clazz from dex by clazzId
-                clazz = dvmResolveClass(curMethod, ref);
+                const char* desc = nullptr;
+                clazz = dvmResolveClass(curMethod, ref, nullptr, &desc);
+                LOG_D("class descriptor: %s", desc);
                 if (clazz == nullptr) {
                     GOTO_exceptionThrown();
                 }
@@ -392,6 +401,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
             // check type
             SET_REGISTER(vdst, static_cast<u4>((*env).IsInstanceOf(obj, clazz)));
             FINISH(2);
+            (*env).DeleteLocalRef(clazz);
         OP_END
 
         case OP_ARRAY_LENGTH: HANDLE_OPCODE(OP_ARRAY_LENGTH /*vA, vB*/)
@@ -417,7 +427,9 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
             ref = FETCH(1);
             LOG_D("|new-instance v%d,class@0x%04x", vdst, ref);
             //  get clazz from dex by clazzId
-            clazz = dvmResolveClass(curMethod, ref);
+            const char* desc = nullptr;
+            clazz = dvmResolveClass(curMethod, ref, nullptr, &desc);
+            LOG_D("class descriptor: %s", desc);
             if (clazz == nullptr) {
                 GOTO_exceptionThrown();
             }
@@ -427,6 +439,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
             }
             SET_REGISTER_AS_OBJECT(vdst, newObj);
             FINISH(2);
+            (*env).DeleteLocalRef(clazz);
         OP_END
 
         case OP_NEW_ARRAY: HANDLE_OPCODE(OP_NEW_ARRAY /*vA, vB, class@CCCC*/)
@@ -1319,20 +1332,20 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
         /*
         * Resolve the array class.
         */
-        arrayClass = dvmResolveClass(curMethod, ref);
+        const char* desc = nullptr;
+        arrayClass = dvmResolveClass(curMethod, ref, nullptr, &desc);
+        LOG_D("class descriptor: %s", desc);
         if (arrayClass == nullptr) {
             GOTO_bail();
         }
-
-        const string descriptor = getClassDescriptorByJClass(arrayClass);
         /* verifier guarantees this is an array class */
-        assert(descriptor[0] == '[');
+        assert(desc[0] == '[');
 
         /*
          * Create an array of the specified type.
          */
-        LOG_D("+++ filled-new-array type is '%s'", descriptor.data());
-        typeCh = descriptor[1];
+        LOG_D("+++ filled-new-array type is '%s'", desc);
+        typeCh = desc[1];
         if (typeCh == 'D' || typeCh == 'J') {
             /* category 2 primitives not allowed */
             dvmThrowRuntimeException("bad filled array req");
@@ -1345,7 +1358,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
         }
 
         if (typeCh == 'L' || typeCh == '[') {
-            string tmp = descriptor.data() + 1;
+            string tmp = desc + 1;
             if (tmp[0] == 'L') {
                 tmp = tmp.substr(1, tmp.size() - 1);
             }
@@ -1417,6 +1430,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
 
         retval.l = newArray;
 
+        (*env).DeleteLocalRef(arrayClass);
     }
     FINISH(3);
     GOTO_TARGET_END
@@ -1434,18 +1448,22 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
             LOG_D("|invoke-super args=%d @0x%04x {regs=0x%04x %x}",
                   vsrc1 >> 4, ref, vdst, vsrc1 & 0x0f);
         }
-
         methodToCallType = METHOD_SUPER;
-        methodToCall = dvmResolveMethod(curMethod, ref, methodToCallType, &methodToCallClazz);
-        if (methodToCall == nullptr) {
-            GOTO_bail();
-        }
 
 #if defined(SHELL_LOG)
-        vmMethodToCall = initVmMethodNoCode(methodToCall, vmMethodToCall);
-        LOG_D("+++ super-virtual=%s.%s", vmMethodToCall->clazzDescriptor, vmMethodToCall->name);
+        const char *nameDbg = nullptr;
+        methodToCall = dvmResolveMethod(curMethod, ref, methodToCallType, &methodToCallClazz,
+                                        &methodToCallShorty, &nameDbg);
+        const string descriptorDbg = getClassDescriptorByJClass(methodToCallClazz);
+        LOG_D("+++ super-virtual=%s.%s", descriptorDbg.data(), nameDbg);
+#else
+        methodToCall = dvmResolveMethod(curMethod, ref, methodToCallType, &methodToCallClazz,
+                                        &methodToCallShorty, nullptr);
 #endif
-
+        if (methodToCall == nullptr) {
+            LOG_E("+ unknown method or access denied");
+            GOTO_bail();
+        }
         GOTO_invokeMethod(methodCallRange, methodToCall, vsrc1, vdst);
     }
     GOTO_TARGET_END
@@ -1477,16 +1495,21 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
          * type of the object.  We also verify access permissions here.
          */
         methodToCallType = METHOD_VIRTUAL;
-        methodToCall = dvmResolveMethod(curMethod, ref, methodToCallType, &methodToCallClazz);
+
+#if defined(SHELL_LOG)
+        const char *nameDbg = nullptr;
+        methodToCall = dvmResolveMethod(curMethod, ref, methodToCallType, &methodToCallClazz,
+                                        &methodToCallShorty, &nameDbg);
+        const string descriptorDbg = getClassDescriptorByJClass(methodToCallClazz);
+        LOG_D("+++ virtual=%s.%s", descriptorDbg.data(), nameDbg);
+#else
+        methodToCall = dvmResolveMethod(curMethod, ref, methodToCallType, &methodToCallClazz,
+                                        &methodToCallShorty, nullptr);
+#endif
         if (methodToCall == nullptr) {
             LOG_E("+ unknown method or access denied");
             GOTO_bail();
         }
-
-#if defined(SHELL_LOG)
-        vmMethodToCall = initVmMethodNoCode(methodToCall, vmMethodToCall);
-        LOG_D("+++ virtual=%s.%s", vmMethodToCall->clazzDescriptor, vmMethodToCall->name);
-#endif
 
         GOTO_invokeMethod(methodCallRange, methodToCall, vsrc1, vdst);
     }
@@ -1508,17 +1531,22 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
         }
 
         methodToCallType = METHOD_DIRECT;
-        methodToCall = dvmResolveMethod(curMethod, ref, methodToCallType, &methodToCallClazz);
+
+#if defined(SHELL_LOG)
+        const char *nameDbg = nullptr;
+        methodToCall = dvmResolveMethod(curMethod, ref, methodToCallType, &methodToCallClazz,
+                                        &methodToCallShorty, &nameDbg);
+        const string descriptorDbg = getClassDescriptorByJClass(methodToCallClazz);
+        LOG_D("+++ direct=%s.%s", descriptorDbg.data(), nameDbg);
+#else
+        methodToCall = dvmResolveMethod(curMethod, ref, methodToCallType, &methodToCallClazz,
+                                        &methodToCallShorty, nullptr);
+#endif
 
         if (methodToCall == nullptr) {
             LOG_E("+ unknown direct method");     // should be impossible
             GOTO_bail();
         }
-
-#if defined(SHELL_LOG)
-        vmMethodToCall = initVmMethodNoCode(methodToCall, vmMethodToCall);
-        LOG_D("+++ direct=%s.%s", vmMethodToCall->clazzDescriptor, vmMethodToCall->name);
-#endif
 
         GOTO_invokeMethod(methodCallRange, methodToCall, vsrc1, vdst);
     }
@@ -1541,16 +1569,22 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
         }
 
         methodToCallType = METHOD_STATIC;
-        methodToCall = dvmResolveMethod(curMethod, ref, methodToCallType, &methodToCallClazz);
+
+#if defined(SHELL_LOG)
+        const char *nameDbg = nullptr;
+        methodToCall = dvmResolveMethod(curMethod, ref, methodToCallType, &methodToCallClazz,
+                                        &methodToCallShorty, &nameDbg);
+        const string descriptorDbg = getClassDescriptorByJClass(methodToCallClazz);
+        LOG_D("+++ static=%s.%s", descriptorDbg.data(), nameDbg);
+#else
+        methodToCall = dvmResolveMethod(curMethod, ref, methodToCallType, &methodToCallClazz,
+                                        &methodToCallShorty, nullptr);
+#endif
+
         if (methodToCall == nullptr) {
             LOG_E("+ unknown method");
             GOTO_bail();
         }
-
-#if defined(SHELL_LOG)
-        vmMethodToCall = initVmMethodNoCode(methodToCall, vmMethodToCall);
-        LOG_D("+++ static=%s.%s", vmMethodToCall->clazzDescriptor, vmMethodToCall->name);
-#endif
 
         GOTO_invokeMethod(methodCallRange, methodToCall, vsrc1, vdst);
     }
@@ -1581,18 +1615,23 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
          * actual code we want to execute.
          */
         methodToCallType = METHOD_INTERFACE;
-        methodToCall = dvmResolveMethod(curMethod, ref, methodToCallType, &methodToCallClazz);
+
+#if defined(SHELL_LOG)
+        const char *nameDbg = nullptr;
+        methodToCall = dvmResolveMethod(curMethod, ref, methodToCallType, &methodToCallClazz,
+                                        &methodToCallShorty, &nameDbg);
+        const string descriptorDbg = getClassDescriptorByJClass(methodToCallClazz);
+        LOG_D("+++ interface concrete=%s.%s", descriptorDbg.data(), nameDbg);
+#else
+        methodToCall = dvmResolveMethod(curMethod, ref, methodToCallType, &methodToCallClazz,
+                                        &methodToCallShorty, nullptr);
+#endif
+
         if (methodToCall == nullptr) {
             /* impossible in verified DEX, need to check for it in unverified */
             dvmThrowIncompatibleClassChangeError("interface not implemented");
             GOTO_bail();
         }
-
-#if defined(SHELL_LOG)
-        vmMethodToCall = initVmMethodNoCode(methodToCall, vmMethodToCall);
-        LOG_D("+++ interface concrete=%s.%s", vmMethodToCall->clazzDescriptor,
-              vmMethodToCall->name);
-#endif
 
         GOTO_invokeMethod(methodCallRange, methodToCall, vsrc1, vdst);
     }
@@ -1616,9 +1655,6 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
             GOTO_exceptionThrown();
         }
 
-        vmMethodToCall = initVmMethodNoCode(methodToCall, vmMethodToCall);
-        const char *methodToCallShorty = dexStringById(vmMethodToCall->dexFile,
-                                                       vmMethodToCall->protoId->shortyIdx);
         /*
          * Copy args.  This may corrupt vsrc1/vdst.
          */
@@ -1848,7 +1884,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
         }
 // debug print invoke method
 #if defined(SHELL_LOG)
-        debugInvokeMethod(methodToCall, retval, vars, vmMethodToCall);
+        debugInvokeMethod(methodToCallShorty, retval, vars);
 #endif
 
         delete[] vars;
@@ -1984,10 +2020,6 @@ jstring dvmResolveString(const VmMethod *method, u4 stringIdx) {
     return (*env).NewStringUTF(stringData);
 }
 
-jclass dvmResolveClass(const VmMethod *method, u4 classIdx) {
-    return dvmResolveClass(method, classIdx, nullptr);
-}
-
 void dvmThrowClassCastException(jclass actual, jclass desired) {
     string msg = getClassDescriptorByJClass(actual);
     msg += " cannot be cast to ";
@@ -2005,9 +2037,13 @@ void dvmThrowNegativeArraySizeException(s4 size) {
     dvmThrowNew("java/lang/NegativeArraySizeException", msgBuf);
 }
 
-jclass dvmResolveClass(const VmMethod *method, u4 classIdx, string *clazzNameString) {
+jclass dvmResolveClass(const VmMethod *method, u4 classIdx, string *clazzNameString,
+                       const char **ppClassDescriptor) {
     const DexFile *pDexFile = method->dexFile;
     const char *clazzName = dexStringByTypeIdx(pDexFile, classIdx);
+    if(ppClassDescriptor!= nullptr){
+        *ppClassDescriptor = clazzName;
+    }
     if (clazzName[1] == '\0') {
         return dvmResolvePrimitiveClass(clazzName[0], clazzNameString);
     }
@@ -2030,22 +2066,33 @@ jclass dvmResolveClass(const VmMethod *method, u4 classIdx, string *clazzNameStr
 
 
 jmethodID dvmResolveMethod(const VmMethod *method, u4 methodIdx, MethodType methodType,
-                           jclass *methodToCallClazz) {
+                           jclass *methodToCallClazz, const char **ppMethodToCallShorty,
+                           const char **ppMethodToCallName) {
     const DexFile *pDexFile = method->dexFile;
     const DexMethodId *pMethodId = dexGetMethodId(pDexFile, methodIdx);
-    jclass resClass = dvmResolveClass(method, pMethodId->classIdx);
+    jclass resClass = dvmResolveClass(method, pMethodId->classIdx, nullptr, nullptr);
     if (resClass == nullptr) {
         return nullptr;
     }
     *methodToCallClazz = resClass;
     const char *name = dexStringById(pDexFile, pMethodId->nameIdx);
     LOG_D("--- resolving method=%s (idx=%u referrer=%s)", name, methodIdx, method->clazzDescriptor);
+    if (ppMethodToCallName != nullptr) {
+        *ppMethodToCallName = name;
+    }
+
+    *ppMethodToCallShorty = dexStringById(pDexFile,
+                                          dexGetProtoId(pDexFile, pMethodId->protoIdx)->shortyIdx);
+
     string sign;
     dvmResolveMethodSign(method, pMethodId, &sign);
+    jmethodID retValue = nullptr;
     if (methodType == METHOD_STATIC) {
-        return (*env).GetStaticMethodID(resClass, name, sign.data());
+        retValue = (*env).GetStaticMethodID(resClass, name, sign.data());
+    } else {
+        retValue = (*env).GetMethodID(resClass, name, sign.data());
     }
-    return (*env).GetMethodID(resClass, name, sign.data());
+    return retValue;
 }
 
 void
@@ -2073,6 +2120,7 @@ jarray dvmAllocArrayByClass(const s4 length, const VmMethod *method, u4 classIdx
     /* must be array class */
     assert(tmp[0] == '[');
     jclass elementClazz;
+    jarray retValue = nullptr;
     switch (tmp[1]) {
         case 'I':
             return (*env).NewIntArray(length);
@@ -2103,22 +2151,22 @@ jarray dvmAllocArrayByClass(const s4 length, const VmMethod *method, u4 classIdx
             if (elementClazz == nullptr) {
                 return nullptr;
             }
-            return (*env).NewObjectArray(length, elementClazz, nullptr);
-
+            retValue = (*env).NewObjectArray(length, elementClazz, nullptr);
+            break;
         case 'L':
             elementClazz = (*env).FindClass(tmp.substr(2, tmp.size() - 3).data());
             if (elementClazz == nullptr) {
                 return nullptr;
             }
-            return (*env).NewObjectArray(length, elementClazz, nullptr);
-
+            retValue = (*env).NewObjectArray(length, elementClazz, nullptr);
+            break;
         default:
             LOG_E("Unknown primitive type '%s'", tmp.data() + 1);
             dvmThrowRuntimeException("error type of field... cc");
             return nullptr;
     }
-
-
+    (*env).DeleteLocalRef(elementClazz);
+    return retValue;
 }
 
 bool dvmInterpretHandleFillArrayData(jarray arrayObj, const u2 *arrayData) {
@@ -2336,7 +2384,7 @@ bool dvmResolveField(const VmMethod *method, u4 ifieldIdx, jobject obj, s8 *res,
     const DexFile *pDexFile = method->dexFile;
     LOG_D("--- resolving field %u (referrer=%s)", ifieldIdx, method->clazzDescriptor);
     const DexFieldId *pFieldId = dexGetFieldId(pDexFile, ifieldIdx);
-    jclass resClass = dvmResolveClass(method, pFieldId->classIdx);
+    jclass resClass = dvmResolveClass(method, pFieldId->classIdx, nullptr, nullptr);
     if (resClass == nullptr) {
         LOG_E("can't found jclass");
         return false;
@@ -2413,11 +2461,13 @@ bool dvmResolveField(const VmMethod *method, u4 ifieldIdx, jobject obj, s8 *res,
         default:
             LOG_E("error type of field...");
             dvmThrowRuntimeException("error type of field... cc");
+            (*env).DeleteLocalRef(resClass);
             return false;
     }
     if (ppName != nullptr) {
         *ppName = name;
     }
+    (*env).DeleteLocalRef(resClass);
     return true;
 }
 
@@ -2426,7 +2476,7 @@ bool dvmResolveSetField(const VmMethod *method, u4 ifieldIdx, jobject obj, u8 re
     const DexFile *pDexFile = method->dexFile;
     LOG_D("--- resolving field %u (referrer=%s)", ifieldIdx, method->clazzDescriptor);
     const DexFieldId *pFieldId = dexGetFieldId(pDexFile, ifieldIdx);
-    jclass resClass = dvmResolveClass(method, pFieldId->classIdx);
+    jclass resClass = dvmResolveClass(method, pFieldId->classIdx, nullptr, nullptr);
     if (resClass == nullptr) {
         LOG_E("can't found jclass.");
         return false;
@@ -2509,11 +2559,13 @@ bool dvmResolveSetField(const VmMethod *method, u4 ifieldIdx, jobject obj, u8 re
         default:
             LOG_E("error type of field...");
             dvmThrowRuntimeException("error type of field... cc");
+            (*env).DeleteLocalRef(resClass);
             return false;
     }
     if (ppName != nullptr) {
         *ppName = name;
     }
+    (*env).DeleteLocalRef(resClass);
     return true;
 }
 
@@ -2529,12 +2581,8 @@ void debugWriteDex(const VmMethod *method, const char *path) {
     LOG_D("finish dex to %s", path);
 }
 
-void debugInvokeMethod(jmethodID jniMethod, const jvalue retVal, const jvalue *vars,
-                       VmMethod *vmMethod) {
-    const auto *method = initVmMethodNoCode(jniMethod, vmMethod);
-    const char *shorty = dexStringById(method->dexFile, method->protoId->shortyIdx);
-    LOG_D("invoke method: %s .%s    %s", method->clazzDescriptor, method->name, shorty);
-    switch (shorty[0]) {
+void debugInvokeMethod(const char *methodShorty, const jvalue retVal, const jvalue *vars) {
+    switch (methodShorty[0]) {
         case 'I':
             LOG_D("return value (int): %d", retVal.i);
             break;
@@ -2576,14 +2624,13 @@ void debugInvokeMethod(jmethodID jniMethod, const jvalue retVal, const jvalue *v
             break;
 
         default:
-            LOG_E("error method's return type(%s)...", shorty);
-            debugWriteDex(method, (getDataDir(env) + "/classes.dex").data());
+            LOG_E("error method's return type(%s)...", methodShorty);
             assert(false);
             break;
     }
 
-    for (int var_i = 0; shorty[var_i + 1] != '\0'; var_i++) {
-        switch (shorty[var_i + 1]) {
+    for (int var_i = 0; methodShorty[var_i + 1] != '\0'; var_i++) {
+        switch (methodShorty[var_i + 1]) {
             case 'I':
                 LOG_D("var(0x%02x) value (int): %d", var_i, vars[var_i].i);
                 break;
@@ -2622,8 +2669,7 @@ void debugInvokeMethod(jmethodID jniMethod, const jvalue retVal, const jvalue *v
                 break;
 
             default:
-                LOG_E("error method's param type(%s)...", shorty);
-                debugWriteDex(method, (getDataDir(env) + "/classes.dex").data());
+                LOG_E("error method's param type(%s)...", methodShorty);
                 assert(false);
                 break;
         }
@@ -2743,6 +2789,7 @@ void dvmThrowVerificationError(const VmMethod *method, int kind, int ref) {
     }
 
     (*env).ThrowNew(exceptionClass, msg.data());
+    (*env).DeleteLocalRef(exceptionClass);
 }
 
 string dvmHumanReadableDescriptor(const char *descriptor) {
@@ -2934,10 +2981,6 @@ const DexFile *initDexFileInArt(const uint8_t *buf, size_t size) {
     auto *pDexHeader = (DexHeader *) buf;
     LOG_D("dex marge: %c%c%c%c", buf[0], buf[1], buf[2], buf[3]);
     LOG_D("dex marge: %c%c%c%c", buf[4], buf[5], buf[6], buf[7]);
-    if (strncmp((char *) buf, "cdex", 4) == 0) {
-        auto *pOdexHeader = (DexOptHeader *) buf;
-        pDexHeader = (DexHeader *) (buf + pOdexHeader->dexOffset);
-    }
     auto *pDexFile = new DexFile();
     pDexFile->baseAddr = (u1 *) pDexHeader;
     pDexFile->pHeader = pDexHeader;
@@ -3037,10 +3080,12 @@ VmMethod *initVmMethodNoCode(jmethodID jniMethod, VmMethod *pVmMethod) {
 
 const string getClassDescriptorByJClass(jclass clazz) {
     jclass cClass = (*env).FindClass("java/lang/Class");
-    jmethodID mGetCanonicalName = (*env).GetMethodID(cClass, "getCanonicalName",
+    jmethodID mGetCanonicalName = (*env).GetMethodID(cClass, "getName",
                                                      "()Ljava/lang/String;");
     jstring utfString = (jstring) (*env).CallObjectMethod(clazz, mGetCanonicalName);
     string javaDesc = (*env).GetStringUTFChars(utfString, JNI_FALSE);
+    (*env).DeleteLocalRef(cClass);
+
     string retValue;
     const char *pS = javaDesc.data();
     const char *pE = pS + javaDesc.size() - 1;
@@ -3091,5 +3136,8 @@ jclass dvmResolvePrimitiveClass(char type, string *clazzNameString) {
     jclass cClass = (*env).GetObjectClass(cArray);
     jmethodID mGetComponentType = (*env).GetMethodID(cClass, "getComponentType",
                                                      "()Ljava/lang/Class;");
-    return (jclass) (*env).CallObjectMethod(cArray, mGetComponentType);
+    jclass retValue = (jclass) (*env).CallObjectMethod(cArray, mGetComponentType);
+    (*env).DeleteLocalRef(cArray);
+    (*env).DeleteLocalRef(cClass);
+    return retValue;
 }

@@ -87,6 +87,8 @@ bool
 myDexFileOpen_21_23(const char *filename, const char *location, string *error_msg,
                     vector<void *> *dex_files);
 
+char* getDexAddrByMMap_26_28();
+
 bool hookDexFileOpen();
 
 void fillBackMethodInsns(const char *descriptor);
@@ -98,9 +100,6 @@ bool myLinkClass_19(ClassObject *clazz);
 
 void hookClassLink();
 
-bool myCheckMagicAndVersion_26_27(void *thiz, string *error_msg);
-
-void hookCheckMagicAndVersion();
 
 /*
  * Reads a signed LEB128 value, updating the given pointer to point

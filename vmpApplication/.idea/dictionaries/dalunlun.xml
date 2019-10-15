@@ -40,6 +40,7 @@
       <w>mmap</w>
       <w>mprotect</w>
       <w>msgs</w>
+      <w>numconv</w>
       <w>odex</w>
       <w>opname</w>
       <w>preloads</w>

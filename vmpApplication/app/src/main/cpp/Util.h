@@ -48,4 +48,6 @@ void debugMaps();
 
 const char* getLinkerPath();
 
+bool endWith(const string& str, const string& subStr);
+
 #endif //SHELLAPPLICATION_UTIL_H

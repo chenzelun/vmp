@@ -124,6 +124,7 @@ void updateNativeLibraryDirectories(JNIEnv *env, const string &libDirPath) {
                                      oFile);
         LOG_D("4");
         (*env).SetObjectField(oPathList, fNativeLibraryDirectories, oNativeLibraryDirectoriesNew);
+        (*env).DeleteLocalRef(cFile);
     } else if (android_get_device_api_level() >= __ANDROID_API_M__ &&
                android_get_device_api_level() <= __ANDROID_API_N_MR1__) {
         jfieldID fNativeLibraryPathElements =
@@ -154,6 +155,9 @@ void updateNativeLibraryDirectories(JNIEnv *env, const string &libDirPath) {
         (*env).SetObjectArrayElement(oNativeLibraryPathElementsNew,
                                      oldLenNativeLibraryPathElements, oElement);
         (*env).SetObjectField(oPathList, fNativeLibraryPathElements, oNativeLibraryPathElementsNew);
+        LOG_D("3.5");
+        (*env).DeleteLocalRef(cElement);
+        (*env).DeleteLocalRef(cFile);
     } else {
         jfieldID fNativeLibraryPathElements =
                 (*env).GetFieldID(cDexPathList, "nativeLibraryPathElements",
@@ -184,6 +188,8 @@ void updateNativeLibraryDirectories(JNIEnv *env, const string &libDirPath) {
                                      oNativeLibraryElement);
         (*env).SetObjectField(oPathList, fNativeLibraryPathElements, oNativeLibraryPathElementsNew);
         LOG_D("4");
+        (*env).DeleteLocalRef(cNativeLibraryElement);
+        (*env).DeleteLocalRef(cFile);
 //        jclass cList = (*env).FindClass("java/util/List");
 //        jmethodID mAdd = (*env).GetMethodID(cList, "add", "(Ljava/lang/Object;)Z");
 //        jfieldID fNativeLibraryDirectories =

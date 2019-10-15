@@ -182,6 +182,7 @@ string getSystemGetProperty(JNIEnv *env, const char *propertyName) {
                                                       "(Ljava/lang/String;)Ljava/lang/String;");
     jstring propertyNameJStr = (*env).NewStringUTF(propertyName);
     jobject result = (*env).CallStaticObjectMethod(cSystem, mGetProperty, propertyNameJStr);
+    (*env).DeleteLocalRef(cSystem);
     if (result == nullptr) {
         return "";
     } else {
@@ -209,5 +210,12 @@ const char *getLinkerPath() {
 #else
     return "/system/bin/linker";
 #endif
+}
+
+bool endWith(const string &str, const string &subStr) {
+    if(str.size()<subStr.size()){
+        return false;
+    }
+    return !strcmp(str.substr(str.size()-subStr.size(), subStr.size()).data(), subStr.data());
 }
 

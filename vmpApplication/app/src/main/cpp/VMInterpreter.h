@@ -21,19 +21,13 @@ struct VmMethod {
     const CodeItemData *code;
 };
 
-struct VmField {
-    const DexFile *dexFile;
-    const char *name;
-    const char *clazzDescriptor;
-    u4 accessFlags;
-};
-
 using namespace std;
 
 const DexFile *initDexFileInArt(const uint8_t *buf, size_t size);
 
 jmethodID dvmResolveMethod(const VmMethod *method, u4 methodIdx, MethodType methodType,
-                           jclass *methodToCallClazz);
+                           jclass *methodToCallClazz, const char **ppMethodToCallShorty,
+                           const char **ppMethodToCallName);
 
 bool dvmResolveField(const VmMethod *method, u4 ifieldIdx, jobject obj, s8 *res,
                      const char **ppName);
@@ -49,9 +43,8 @@ dvmResolveMethodSign(const VmMethod *method, const DexProtoId *pDexProtoId, stri
 
 jstring dvmResolveString(const VmMethod *method, u4 stringIdx);
 
-jclass dvmResolveClass(const VmMethod *method, u4 classIdx);
-
-jclass dvmResolveClass(const VmMethod *method, u4 classIdx, string *clazzNameString);
+jclass dvmResolveClass(const VmMethod *method, u4 classIdx, string *clazzNameString,
+                       const char **ppClassDescriptor);
 
 jclass dvmResolvePrimitiveClass(char type, string *clazzNameString);
 
@@ -81,8 +74,7 @@ bool dvmCanPutArrayElement(const jobject obj, const jobject arrayObj);
 
 #if defined(SHELL_LOG)
 void
-debugInvokeMethod(jmethodID jniMethod, const jvalue retVal, const jvalue *vars,
-                  VmMethod *vmMethod = nullptr);
+debugInvokeMethod(const char *methodShorty, const jvalue retVal, const jvalue *vars);
 
 void debugWriteDex(const VmMethod *method, const char *path);
 
