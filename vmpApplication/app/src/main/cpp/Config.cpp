@@ -205,6 +205,7 @@ void copyFileFromAssets(JNIEnv *env, const string &configFileName, const string 
     ofstream writer(dstFilePath.data(), ios::binary);
     writer.write(fileBuf, fileSize);
     writer.close();
+    AAsset_close(asset);
     LOG_D("finish, copyFileFromAssets(JNIEnv *env, const string &configFileName, const string &dstFilePath)");
 }
 

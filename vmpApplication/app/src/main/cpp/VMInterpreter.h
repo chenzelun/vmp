@@ -52,7 +52,7 @@ jarray dvmAllocArrayByClass(const s4 length, const VmMethod *method, u4 classIdx
 
 
 void
-dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *reg,
+dvmInterpret(JNIEnv *env, const VmMethod *curMethod, jvalue *reg, bool *regObjectFlag,
              jvalue *pResult);
 
 void
@@ -73,6 +73,7 @@ inline s4 s4FromSwitchData(const void *switchData) {
 bool dvmCanPutArrayElement(const jobject obj, const jobject arrayObj);
 
 #if defined(SHELL_LOG)
+
 void
 debugInvokeMethod(const char *methodShorty, const jvalue retVal, const jvalue *vars);
 
@@ -120,6 +121,7 @@ dvmThrowArrayStoreExceptionIncompatibleElement(const jobject obj, const jobject 
 void dvmThrowVerificationError(const VmMethod *method, int kind, int ref);
 
 const string getClassDescriptorByJClass(jclass clazz);
+
 //enum Opcode {
 //    // BEGIN(libdex-opcode-enum); GENERATED AUTOMATICALLY BY opcode-gen
 //    OP_NOP = 0x00,                    // i t
@@ -387,6 +389,7 @@ const string getClassDescriptorByJClass(jclass clazz);
             jclass clazz = (*env).FindClass(clazzName);                                         \
             assert(clazz!= nullptr);                                                            \
             (*env).ThrowNew(clazz, message);                                                    \
+            (*env).DeleteLocalRef(clazz);                                                       \
        }
 
 
@@ -789,29 +792,45 @@ static const char kSpacing[] = "            ";
 //
 //#endif
 
-#define GET_REGISTER(_idx)                 (*(u4*)(reg+(_idx)))
+#define CHECK_LOCAL_REF_IN_REG(_idx)              {                     \
+    if(regObjectFlag[_idx]==true){                                      \
+        (*env).DeleteLocalRef(reg[_idx].l);                             \
+        regObjectFlag[_idx]=false;                                      \
+    }                                                                   \
+}
 
-#define SET_REGISTER(_idx, _val)           (*(u4*)(reg+(_idx)) = (_val))
+#define GET_REGISTER(_idx)                  (*(u4*)(reg+(_idx)))
 
-#define GET_REGISTER_WIDE(_idx)            (*(u8*)(reg+(_idx)))
+#define SET_REGISTER(_idx, _val)            CHECK_LOCAL_REF_IN_REG(_idx);                       \
+                                            (*(u4*)(reg+(_idx)) = (_val))
 
-#define SET_REGISTER_WIDE(_idx, _val)      (*(u8*)(reg+(_idx)) = (_val))
+#define GET_REGISTER_WIDE(_idx)             (*(u8*)(reg+(_idx)))
 
-#define GET_REGISTER_AS_OBJECT(_idx)       (reg[_idx].l)
+#define SET_REGISTER_WIDE(_idx, _val)       CHECK_LOCAL_REF_IN_REG(_idx);                       \
+                                            (*(u8*)(reg+(_idx)) = (_val))
 
-#define SET_REGISTER_AS_OBJECT(_idx, _val) (reg[_idx].l = (jobject)(_val))
+#define GET_REGISTER_AS_OBJECT(_idx)        (reg[_idx].l)
 
-#define GET_REGISTER_INT(_idx)             (reg[_idx].i)
+#define SET_REGISTER_AS_OBJECT(_idx, _val)  CHECK_LOCAL_REF_IN_REG(_idx);                       \
+                                            (reg[_idx].l = (jobject)(_val));                    \
+                                            regObjectFlag[_idx]=true
 
-#define SET_REGISTER_INT(_idx, _val)       ((reg[_idx].i) = _val)
+#define GET_REGISTER_INT(_idx)              (reg[_idx].i)
 
-#define GET_REGISTER_FLOAT(_idx)           (reg[_idx].f)
+#define SET_REGISTER_INT(_idx, _val)        CHECK_LOCAL_REF_IN_REG(_idx);                       \
+                                            ((reg[_idx].i) = _val)
 
-#define SET_REGISTER_FLOAT(_idx, _val)     ((reg[_idx].f) = _val)
+#define GET_REGISTER_FLOAT(_idx)            (reg[_idx].f)
 
-#define GET_REGISTER_DOUBLE(_idx)          (reg[_idx].d)
+#define SET_REGISTER_FLOAT(_idx, _val)      CHECK_LOCAL_REF_IN_REG(_idx);                       \
+                                            ((reg[_idx].f) = _val)
 
-#define SET_REGISTER_DOUBLE(_idx, _val)    ((reg[_idx].d) = _val)
+#define GET_REGISTER_DOUBLE(_idx)           (reg[_idx].d)
+
+#define SET_REGISTER_DOUBLE(_idx, _val)     CHECK_LOCAL_REF_IN_REG(_idx);                       \
+                                            ((reg[_idx].d) = _val)
+
+
 
 /*
  * Get 16 bits from the specified offset of the program counter.  We always
@@ -1087,7 +1106,7 @@ GOTO_TARGET_DECL(exceptionThrown);
         vdst = INST_A(inst);                                                \
         vsrc1 = INST_B(inst);                                               \
         vsrc2 = FETCH(1);                                                   \
-        LOG_D("|%s-int/lit16 v%d,v%d,#+0x%04x",                              \
+        LOG_D("|%s-int/lit16 v%d,v%d,#+0x%04x",                             \
             (_opname), vdst, vsrc1, vsrc2);                                 \
         if (_chkdiv != 0) {                                                 \
             s4 firstVal, result;                                            \
@@ -1118,7 +1137,7 @@ GOTO_TARGET_DECL(exceptionThrown);
         litInfo = FETCH(1);                                                 \
         vsrc1 = litInfo & 0xff;                                             \
         vsrc2 = litInfo >> 8;       /* constant */                          \
-        LOG_D("|%s-int/lit8 v%d,v%d,#+0x%02x",                               \
+        LOG_D("|%s-int/lit8 v%d,v%d,#+0x%02x",                              \
             (_opname), vdst, vsrc1, vsrc2);                                 \
         if (_chkdiv != 0) {                                                 \
             s4 firstVal, result;                                            \
@@ -1323,7 +1342,7 @@ GOTO_TARGET_DECL(exceptionThrown);
 
 
 // ok
-#define HANDLE_OP_AGET(_opcode, _opname, _jtype, _ctype, _regsize)        \
+#define HANDLE_OP_AGET(_opcode, _opname, _jtype, _ctype, _regsize)          \
     HANDLE_OPCODE(_opcode /*vAA, vBB, vCC*/)                                \
         _ctype##Array arrayObj;                                             \
         u2 arrayInfo;                                                       \
@@ -1339,12 +1358,12 @@ GOTO_TARGET_DECL(exceptionThrown);
         if (GET_REGISTER(vsrc2) >= (*env).GetArrayLength(arrayObj)) {       \
             dvmThrowArrayIndexOutOfBoundsException(                         \
                 (*env).GetArrayLength(arrayObj), GET_REGISTER(vsrc2));      \
-            GOTO_exceptionThrown();                                        \
+            GOTO_exceptionThrown();                                         \
         }                                                                   \
         u8 tmpBuf[1];                                                       \
         (*env).Get##_jtype##ArrayRegion(arrayObj,                           \
                 GET_REGISTER(vsrc2), 1, (_ctype*)tmpBuf);                   \
-        SET_REGISTER##_regsize(vdst, *((_ctype*)tmpBuf));                  \
+        SET_REGISTER##_regsize(vdst, *((_ctype*)tmpBuf));                   \
         LOG_D("+ AGET[%d]=%#x", GET_REGISTER(vsrc2), GET_REGISTER(vdst));   \
     FINISH(2);
 
@@ -1358,16 +1377,16 @@ GOTO_TARGET_DECL(exceptionThrown);
         vsrc1 = arrayInfo & 0xff;   /* BB: array ptr */                     \
         vsrc2 = arrayInfo >> 8;     /* CC: index */                         \
         LOG_D("|aput%s v%d,v%d,v%d", (_opname), vdst, vsrc1, vsrc2);        \
-        arrayObj = (_ctype##Array) GET_REGISTER_AS_OBJECT(vsrc1);                     \
+        arrayObj = (_ctype##Array) GET_REGISTER_AS_OBJECT(vsrc1);           \
         if (!checkForNull((jobject) arrayObj)){                             \
             GOTO_exceptionThrown();                                         \
         }                                                                   \
         if (GET_REGISTER(vsrc2) >= (*env).GetArrayLength(arrayObj)) {       \
             dvmThrowArrayIndexOutOfBoundsException(                         \
                 (*env).GetArrayLength(arrayObj), GET_REGISTER(vsrc2));      \
-            GOTO_bail();                                                    \
+            GOTO_exceptionThrown();                                         \
         }                                                                   \
-        LOG_D("+ APUT[%d]=0x%08lx", GET_REGISTER(vsrc2),                   \
+        LOG_D("+ APUT[%d]=0x%08lx", GET_REGISTER(vsrc2),                    \
                 (jlong)GET_REGISTER##_regsize(vdst));                       \
         u8 tmpBuf[1];                                                       \
         *((_ctype*)tmpBuf) = GET_REGISTER##_regsize(vdst);                  \
@@ -1384,7 +1403,7 @@ GOTO_TARGET_DECL(exceptionThrown);
         vdst = INST_A(inst);                                                \
         vsrc1 = INST_B(inst);   /* object ptr */                            \
         ref = FETCH(1);         /* field ref */                             \
-        LOG_D("|iget%s v%d,v%d,field@0x%04x", (_opname), vdst, vsrc1, ref);  \
+        LOG_D("|iget%s v%d,v%d,field@0x%04x", (_opname), vdst, vsrc1, ref); \
         obj = GET_REGISTER_AS_OBJECT(vsrc1);                                \
         if (!checkForNull(obj)){                                            \
             GOTO_exceptionThrown();                                         \
@@ -1395,7 +1414,7 @@ GOTO_TARGET_DECL(exceptionThrown);
             GOTO_exceptionThrown();                                         \
         }                                                                   \
         SET_REGISTER##_regsize(vdst, (_ctype)resVal);                       \
-        LOG_D("+ IGET '%s'=0x%08lx", name,                                 \
+        LOG_D("+ IGET '%s'=0x%08lx", name,                                  \
             (u8)GET_REGISTER##_regsize(vdst));                              \
     FINISH(2);
 
@@ -1403,7 +1422,7 @@ GOTO_TARGET_DECL(exceptionThrown);
 #define HANDLE_IPUT_X(_opcode, _opname, _regsize)                           \
     HANDLE_OPCODE(_opcode /*vA, vB, field@CCCC*/)                           \
         jfieldID ifield;                                                    \
-        jobject obj;                                                         \
+        jobject obj;                                                        \
         vdst = INST_A(inst);                                                \
         vsrc1 = INST_B(inst);   /* object ptr */                            \
         ref = FETCH(1);         /* field ref */                             \
@@ -1417,7 +1436,7 @@ GOTO_TARGET_DECL(exceptionThrown);
         if(!dvmResolveSetField(curMethod, ref, obj, resVal, &name)){        \
             GOTO_exceptionThrown();                                         \
         }                                                                   \
-        LOG_D("+ IPUT '%s'=0x%08lx", name,                                 \
+        LOG_D("+ IPUT '%s'=0x%08lx", name,                                  \
             (u8) GET_REGISTER##_regsize(vdst));                             \
     FINISH(2);
 
@@ -1435,14 +1454,14 @@ GOTO_TARGET_DECL(exceptionThrown);
         jfieldID sfield;                                                    \
         vdst = INST_AA(inst);                                               \
         ref = FETCH(1);         /* field ref */                             \
-        LOG_D("|sget%s v%d,sfield@0x%04x", (_opname), vdst, ref);            \
+        LOG_D("|sget%s v%d,sfield@0x%04x", (_opname), vdst, ref);           \
         const char* name;                                                   \
         s8 resVal;                                                          \
         if(!dvmResolveField(curMethod, ref, nullptr, &resVal, &name)){      \
             GOTO_exceptionThrown();                                         \
         }                                                                   \
         SET_REGISTER##_regsize(vdst, (_ctype)resVal);                       \
-        LOG_D("+ SGET '%s'=0x%08lx", name,                                 \
+        LOG_D("+ SGET '%s'=0x%08lx", name,                                  \
             (u8)GET_REGISTER##_regsize(vdst));                              \
     FINISH(2);
 
@@ -1459,7 +1478,7 @@ GOTO_TARGET_DECL(exceptionThrown);
         if(!dvmResolveSetField(curMethod, ref, nullptr, resVal, &name)){    \
             GOTO_exceptionThrown();                                         \
         }                                                                   \
-        LOG_D("+ SPUT '%s'=0x%08lx", name,                                 \
+        LOG_D("+ SPUT '%s'=0x%08lx", name,                                  \
             (u8)GET_REGISTER##_regsize(vdst));                              \
     FINISH(2);
 

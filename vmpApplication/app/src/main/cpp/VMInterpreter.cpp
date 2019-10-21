@@ -13,7 +13,7 @@ extern JNIEnv *env;
 
 
 void
-dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *reg,
+dvmInterpret(JNIEnv *env, const VmMethod *curMethod, jvalue *reg, bool *regObjectFlag,
              jvalue *pResult) {
 
     /* core state */
@@ -24,9 +24,11 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
     u4 ref;                     // 16 or 32-bit quantity fetched directly
     u2 vsrc1, vsrc2, vdst;      // usually used for register indexes
     jvalue retval;
+    bool retValObjectFlag = false;
     retval.j = 0;
 
     jthrowable curException = nullptr;
+    bool curExceptionObjectFlag = false;
 
     bool methodCallRange = false;
     jmethodID methodToCall = nullptr;
@@ -51,9 +53,8 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
         case OP_MOVE: HANDLE_OPCODE(OP_MOVE /*vA, vB*/)
             vdst = static_cast<u2>(INST_A(inst));
             vsrc1 = INST_B(inst);
-            LOG_D("|move%s v%d,v%d %s(v%d=0x%08x)",
-                  (INST_INST(inst) == OP_MOVE) ? "" : "-object", vdst, vsrc1,
-                  kSpacing, vdst, GET_REGISTER(vsrc1));
+            LOG_D("|move%s v%d,v%d %s(v%d=0x%08x)", "", vdst, vsrc1, kSpacing, vdst,
+                  GET_REGISTER(vsrc1));
             SET_REGISTER(vdst, GET_REGISTER(vsrc1));
             FINISH(1);
         OP_END
@@ -61,9 +62,8 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
         case OP_MOVE_FROM16: HANDLE_OPCODE(OP_MOVE_FROM16 /*vAA, vBBBB*/)
             vdst = INST_AA(inst);
             vsrc1 = FETCH(1);
-            LOG_D("|move%s/from16 v%d,v%d %s(v%d=0x%08x)",
-                  (INST_INST(inst) == OP_MOVE_FROM16) ? "" : "-object", vdst, vsrc1,
-                  kSpacing, vdst, GET_REGISTER(vsrc1));
+            LOG_D("|move%s/from16 v%d,v%d %s(v%d=0x%08x)", "", vdst, vsrc1, kSpacing, vdst,
+                  GET_REGISTER(vsrc1));
             SET_REGISTER(vdst, GET_REGISTER(vsrc1));
             FINISH(2);
         OP_END
@@ -71,9 +71,8 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
         case OP_MOVE_16: HANDLE_OPCODE(OP_MOVE_16 /*vAAAA, vBBBB*/)
             vdst = FETCH(1);
             vsrc1 = FETCH(2);
-            LOG_D("|move%s/16 v%d,v%d %s(v%d=0x%08x)",
-                  (INST_INST(inst) == OP_MOVE_16) ? "" : "-object", vdst, vsrc1,
-                  kSpacing, vdst, GET_REGISTER(vsrc1));
+            LOG_D("|move%s/16 v%d,v%d %s(v%d=0x%08x)", "", vdst, vsrc1, kSpacing, vdst,
+                  GET_REGISTER(vsrc1));
             SET_REGISTER(vdst, GET_REGISTER(vsrc1));
             FINISH(3);
         OP_END
@@ -110,38 +109,42 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
         case OP_MOVE_OBJECT: HANDLE_OPCODE(OP_MOVE_OBJECT /*vA, vB*/)
             vdst = static_cast<u2>(INST_A(inst));
             vsrc1 = INST_B(inst);
-            LOG_D("|move%s v%d,v%d %s(v%d=%p)",
-                  (INST_INST(inst) == OP_MOVE) ? "" : "-object", vdst, vsrc1,
-                  kSpacing, vdst, GET_REGISTER_AS_OBJECT(vsrc1));
+            LOG_D("|move%s v%d,v%d %s(v%d=%p)", "-object", vdst, vsrc1, kSpacing, vdst,
+                  GET_REGISTER_AS_OBJECT(vsrc1));
             SET_REGISTER_AS_OBJECT(vdst, GET_REGISTER_AS_OBJECT(vsrc1));
+            // todo: need to check
+            regObjectFlag[vdst] = false;
+            regObjectFlag[vsrc1] = false;
             FINISH(1);
         OP_END
 
         case OP_MOVE_OBJECT_FROM16: HANDLE_OPCODE(OP_MOVE_OBJECT_FROM16 /*vAA, vBBBB*/)
             vdst = INST_AA(inst);
             vsrc1 = FETCH(1);
-            LOG_D("|move%s/from16 v%d,v%d %s(v%d=%p)",
-                  (INST_INST(inst) == OP_MOVE_FROM16) ? "" : "-object", vdst, vsrc1,
-                  kSpacing, vdst, GET_REGISTER_AS_OBJECT(vsrc1));
+            LOG_D("|move%s/from16 v%d,v%d %s(v%d=%p)", "-object", vdst, vsrc1, kSpacing, vdst,
+                  GET_REGISTER_AS_OBJECT(vsrc1));
             SET_REGISTER_AS_OBJECT(vdst, GET_REGISTER_AS_OBJECT(vsrc1));
+            // todo: need to check
+            regObjectFlag[vdst] = false;
+            regObjectFlag[vsrc1] = false;
             FINISH(2);
         OP_END
 
         case OP_MOVE_OBJECT_16: HANDLE_OPCODE(OP_MOVE_OBJECT_16 /*vAAAA, vBBBB*/)
             vdst = FETCH(1);
             vsrc1 = FETCH(2);
-            LOG_D("|move%s/16 v%d,v%d %s(v%d=%p)",
-                  (INST_INST(inst) == OP_MOVE_16) ? "" : "-object", vdst, vsrc1,
-                  kSpacing, vdst, GET_REGISTER_AS_OBJECT(vsrc1));
+            LOG_D("|move%s/16 v%d,v%d %s(v%d=%p)", "-object", vdst, vsrc1, kSpacing, vdst,
+                  GET_REGISTER_AS_OBJECT(vsrc1));
             SET_REGISTER_AS_OBJECT(vdst, GET_REGISTER_AS_OBJECT(vsrc1));
+            // todo: need to check
+            regObjectFlag[vdst] = false;
+            regObjectFlag[vsrc1] = false;
             FINISH(3);
         OP_END
 
         case OP_MOVE_RESULT: HANDLE_OPCODE(OP_MOVE_RESULT /*vAA*/)
             vdst = INST_AA(inst);
-            LOG_D("|move-result%s v%d %s(v%d=0x%08x)",
-                  (INST_INST(inst) == OP_MOVE_RESULT) ? "" : "-object",
-                  vdst, kSpacing + 4, vdst, retval.i);
+            LOG_D("|move-result%s v%d %s(v%d=0x%08x)", "", vdst, kSpacing + 4, vdst, retval.i);
             SET_REGISTER(vdst, retval.i);
             FINISH(1);
         OP_END
@@ -155,10 +158,9 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
 
         case OP_MOVE_RESULT_OBJECT: HANDLE_OPCODE(OP_MOVE_RESULT_OBJECT /*vAA*/)
             vdst = INST_AA(inst);
-            LOG_D("|move-result%s v%d %s(v%d=0x%p)",
-                  (INST_INST(inst) == OP_MOVE_RESULT) ? "" : "-object",
-                  vdst, kSpacing + 4, vdst, retval.l);
+            LOG_D("|move-result%s v%d %s(v%d=0x%p)", "-object", vdst, kSpacing + 4, vdst, retval.l);
             SET_REGISTER_AS_OBJECT(vdst, retval.l);
+            retValObjectFlag = false;
             FINISH(1);
         OP_END
 
@@ -168,6 +170,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
             assert(curException != NULL);
             SET_REGISTER_AS_OBJECT(vdst, curException);
             curException = nullptr;
+            curExceptionObjectFlag = false;
             FINISH(1);
         OP_END
 
@@ -179,7 +182,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
 
         case OP_RETURN: HANDLE_OPCODE(OP_RETURN /*vAA*/)
             vsrc1 = INST_AA(inst);
-            LOG_D("|return%s v%d", (INST_INST(inst) == OP_RETURN) ? "" : "-object", vsrc1);
+            LOG_D("|return%s v%d", "", vsrc1);
             retval.j = 0;       //init
             retval.i = GET_REGISTER_INT(vsrc1);
         OP_END
@@ -194,9 +197,9 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
 
         case OP_RETURN_OBJECT: HANDLE_OPCODE(OP_RETURN_OBJECT /*vAA*/)
             vsrc1 = INST_AA(inst);
-            LOG_D("|return%s v%d",
-                  (INST_INST(inst) == OP_RETURN) ? "" : "-object", vsrc1);
+            LOG_D("|return%s v%d", "-object", vsrc1);
             retval.l = GET_REGISTER_AS_OBJECT(vsrc1);
+            regObjectFlag[vsrc1] = false;
         OP_END
             break;
 
@@ -303,7 +306,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
             ref = FETCH(1);
             LOG_D("|const-class v%d class@0x%04x", vdst, ref);
             // get clazz from dex by clazzId
-            const char* desc = nullptr;
+            const char *desc = nullptr;
             clazz = dvmResolveClass(curMethod, ref, nullptr, &desc);
             LOG_D("class descriptor: %s", desc);
             if (clazz == nullptr) {
@@ -311,7 +314,6 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
             }
             SET_REGISTER_AS_OBJECT(vdst, clazz);
             FINISH(2);
-            (*env).DeleteLocalRef(clazz);
         OP_END
 
             // 0x1d-1e
@@ -362,7 +364,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
             obj = GET_REGISTER_AS_OBJECT(vsrc1);
             if (obj != nullptr) {
                 //  get clazz from dex by clazzId
-                const char* desc = nullptr;
+                const char *desc = nullptr;
                 clazz = dvmResolveClass(curMethod, ref, nullptr, &desc);
                 LOG_D("class descriptor: %s", desc);
                 if (clazz == nullptr) {
@@ -391,7 +393,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
                 SET_REGISTER(vdst, 0);
             } else {
                 // get clazz from dex by clazzId
-                const char* desc = nullptr;
+                const char *desc = nullptr;
                 clazz = dvmResolveClass(curMethod, ref, nullptr, &desc);
                 LOG_D("class descriptor: %s", desc);
                 if (clazz == nullptr) {
@@ -400,8 +402,8 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
             }
             // check type
             SET_REGISTER(vdst, static_cast<u4>((*env).IsInstanceOf(obj, clazz)));
-            FINISH(2);
             (*env).DeleteLocalRef(clazz);
+            FINISH(2);
         OP_END
 
         case OP_ARRAY_LENGTH: HANDLE_OPCODE(OP_ARRAY_LENGTH /*vA, vB*/)
@@ -427,7 +429,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
             ref = FETCH(1);
             LOG_D("|new-instance v%d,class@0x%04x", vdst, ref);
             //  get clazz from dex by clazzId
-            const char* desc = nullptr;
+            const char *desc = nullptr;
             clazz = dvmResolveClass(curMethod, ref, nullptr, &desc);
             LOG_D("class descriptor: %s", desc);
             if (clazz == nullptr) {
@@ -438,8 +440,8 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
                 GOTO_exceptionThrown();
             }
             SET_REGISTER_AS_OBJECT(vdst, newObj);
-            FINISH(2);
             (*env).DeleteLocalRef(clazz);
+            FINISH(2);
         OP_END
 
         case OP_NEW_ARRAY: HANDLE_OPCODE(OP_NEW_ARRAY /*vA, vB, class@CCCC*/)
@@ -1280,7 +1282,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
         default:
             LOG_E("unknown opcode 0x%02x\n", curOp);
             dvmThrowRuntimeException("unknown opcode");
-            return;
+            GOTO_bail();
     }
 
 
@@ -1332,12 +1334,13 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
         /*
         * Resolve the array class.
         */
-        const char* desc = nullptr;
+        const char *desc = nullptr;
         arrayClass = dvmResolveClass(curMethod, ref, nullptr, &desc);
         LOG_D("class descriptor: %s", desc);
         if (arrayClass == nullptr) {
-            GOTO_bail();
+            GOTO_exceptionThrown();
         }
+
         /* verifier guarantees this is an array class */
         assert(desc[0] == '[');
 
@@ -1397,6 +1400,9 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
                 (*env).SetObjectArrayElement(reinterpret_cast<jobjectArray>(newArray), i,
                                              contents[i]);
             }
+
+            (*env).DeleteLocalRef(elementClazz);
+            delete[]contents;
         } else {
             u4 *contents = new u4[vsrc1]();
             /*
@@ -1428,7 +1434,11 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
                                      reinterpret_cast<const jint *>(contents));
         }
 
+        if(retValObjectFlag){
+            (*env).DeleteLocalRef(retval.l);
+        }
         retval.l = newArray;
+        retValObjectFlag = true;
 
         (*env).DeleteLocalRef(arrayClass);
     }
@@ -1718,6 +1728,10 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
         }
 
         // call method.
+        if(retValObjectFlag){
+            (*env).DeleteLocalRef(retval.l);
+            retValObjectFlag = false;
+        }
         if (methodToCallType == METHOD_STATIC) {
             switch (methodToCallShorty[0]) {
                 case 'I':
@@ -1748,6 +1762,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
                 case 'L':
                     retval.l = (*env).CallStaticObjectMethodA(methodToCallClazz, methodToCall,
                                                               vars);
+                    retValObjectFlag = true;
                     break;
 
                 case 'J':
@@ -1807,6 +1822,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
                 case 'L':
                     retval.l = (*env).CallNonvirtualObjectMethodA(thisPtr, methodToCallClazz,
                                                                   methodToCall, vars);
+                    retValObjectFlag = true;
                     break;
 
                 case 'J':
@@ -1862,6 +1878,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
 
                 case 'L':
                     retval.l = (*env).CallObjectMethodA(thisPtr, methodToCall, vars);
+                    retValObjectFlag = true;
                     break;
 
                 case 'J':
@@ -1887,6 +1904,7 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
         debugInvokeMethod(methodToCallShorty, retval, vars);
 #endif
 
+        (*env).DeleteLocalRef(methodToCallClazz);
         delete[] vars;
 
         if ((*env).ExceptionCheck()) {
@@ -1907,7 +1925,12 @@ dvmInterpret(JNIEnv *env, jobject instance, const VmMethod *curMethod, jvalue *r
         int catchRelPC;
         PERIODIC_CHECKS(0);
 
+        if(curExceptionObjectFlag){
+            (*env).DeleteLocalRef(curException);
+            curExceptionObjectFlag = false;
+        }
         curException = (*env).ExceptionOccurred();
+        curExceptionObjectFlag = true;
         assert(curException != nullptr);
         (*env).ExceptionClear();
 
@@ -1945,11 +1968,15 @@ dvmCallMethod(JNIEnv *env, jobject instance, const VmMethod *method, jvalue *pRe
     const char *desc = &(dexStringById(method->dexFile,
                                        method->protoId->shortyIdx)[1]); // [0] is the return type.
     jvalue *reg = new jvalue[method->code->registersSize]();
+    bool *regObjectFlag = new bool[method->code->registersSize]();
     jvalue *ins = reg + (method->code->registersSize - method->code->insSize);
+    bool *insObjectFlag = regObjectFlag + (method->code->registersSize - method->code->insSize);
 
     if (!dvmIsStaticMethod(method->accessFlags)) {
         ins->l = instance;
+        *insObjectFlag = 1;
         ins++;
+        insObjectFlag++;
         verifyCount++;
     }
 
@@ -1961,13 +1988,16 @@ dvmCallMethod(JNIEnv *env, jobject instance, const VmMethod *method, jvalue *pRe
             case 'J': {
                 ins->j = va_arg(args, jlong);
                 ins += 2;
+                insObjectFlag += 2;
                 verifyCount += 2;
                 break;
             }
 
             case 'L': {     /* 'shorty' descr uses L for all refs, incl array */
                 ins->l = va_arg(args, jobject);
+                *insObjectFlag = 1;
                 ins++;
+                insObjectFlag++;
                 verifyCount++;
                 break;
             }
@@ -1975,6 +2005,7 @@ dvmCallMethod(JNIEnv *env, jobject instance, const VmMethod *method, jvalue *pRe
                 /* Z B C S I -- all passed as 32-bit integers */
                 ins->i = va_arg(args, jint);
                 ins++;
+                insObjectFlag++;
                 verifyCount++;
                 break;
             }
@@ -1990,10 +2021,16 @@ dvmCallMethod(JNIEnv *env, jobject instance, const VmMethod *method, jvalue *pRe
     }
 
     // interpret
-    dvmInterpret(env, instance, method, reg, pResult);
+    dvmInterpret(env, method, reg, regObjectFlag, pResult);
 
     bail:
-    free(reg);
+    for (int i = 0; i < method->code->registersSize; i++) {
+        if (regObjectFlag[i]) {
+            (*env).DeleteLocalRef(reg[i].l);
+        }
+    }
+    delete []reg;
+    delete []regObjectFlag;
 }
 
 void dvmThrowArithmeticException(const char *msg) {
@@ -2041,7 +2078,7 @@ jclass dvmResolveClass(const VmMethod *method, u4 classIdx, string *clazzNameStr
                        const char **ppClassDescriptor) {
     const DexFile *pDexFile = method->dexFile;
     const char *clazzName = dexStringByTypeIdx(pDexFile, classIdx);
-    if(ppClassDescriptor!= nullptr){
+    if (ppClassDescriptor != nullptr) {
         *ppClassDescriptor = clazzName;
     }
     if (clazzName[1] == '\0') {
@@ -2152,21 +2189,21 @@ jarray dvmAllocArrayByClass(const s4 length, const VmMethod *method, u4 classIdx
                 return nullptr;
             }
             retValue = (*env).NewObjectArray(length, elementClazz, nullptr);
-            break;
+            (*env).DeleteLocalRef(elementClazz);
+            return retValue;
         case 'L':
             elementClazz = (*env).FindClass(tmp.substr(2, tmp.size() - 3).data());
             if (elementClazz == nullptr) {
                 return nullptr;
             }
             retValue = (*env).NewObjectArray(length, elementClazz, nullptr);
-            break;
+            (*env).DeleteLocalRef(elementClazz);
+            return retValue;
         default:
             LOG_E("Unknown primitive type '%s'", tmp.data() + 1);
             dvmThrowRuntimeException("error type of field... cc");
             return nullptr;
     }
-    (*env).DeleteLocalRef(elementClazz);
-    return retValue;
 }
 
 bool dvmInterpretHandleFillArrayData(jarray arrayObj, const u2 *arrayData) {
@@ -2197,6 +2234,7 @@ bool dvmInterpretHandleFillArrayData(jarray arrayObj, const u2 *arrayData) {
         return false;
     }
     const string descriptor = getClassDescriptorByJClass((*env).GetObjectClass(arrayObj));
+    LOG_D("descriptor: %s", descriptor.data());
     switch (descriptor[1]) {
         case 'I':
             (*env).SetIntArrayRegion(reinterpret_cast<jintArray>(arrayObj), 0, size,
@@ -2373,9 +2411,13 @@ bool dvmCanPutArrayElement(const jobject obj, const jobject arrayObj) {
 void dvmThrowArrayStoreExceptionIncompatibleElement(const jobject obj, const jobject arrayObj) {
     char msg[BUFSIZ];
     memset(msg, 0, BUFSIZ);
+    jclass objClass = (*env).GetObjectClass(obj);
+    jclass arrayClass = (*env).GetObjectClass(arrayObj);
     sprintf(msg, "%s cannot be stored in an array of type %s",
-            getClassDescriptorByJClass((*env).GetObjectClass(obj)).data(),
-            getClassDescriptorByJClass((*env).GetObjectClass(arrayObj)).data());
+            getClassDescriptorByJClass(objClass).data(),
+            getClassDescriptorByJClass(arrayClass).data());
+    (*env).DeleteLocalRef(objClass);
+    (*env).DeleteLocalRef(arrayClass);
     dvmThrowNew("java/lang/ArrayStoreException", msg);
 }
 
@@ -3083,37 +3125,43 @@ const string getClassDescriptorByJClass(jclass clazz) {
     jmethodID mGetCanonicalName = (*env).GetMethodID(cClass, "getName",
                                                      "()Ljava/lang/String;");
     jstring utfString = (jstring) (*env).CallObjectMethod(clazz, mGetCanonicalName);
-    string javaDesc = (*env).GetStringUTFChars(utfString, JNI_FALSE);
-    (*env).DeleteLocalRef(cClass);
+    const char *javaDescChars = (*env).GetStringUTFChars(utfString, JNI_FALSE);
+    LOG_D("javaDescChars: %s", javaDescChars);
+    string retVal(javaDescChars);
+//    string javaDesc = javaDescChars;
+//
+//    string retValue;
+//    const char *pS = javaDesc.data();
+//    const char *pE = pS + javaDesc.size() - 1;
+//    while (pS <= pE && *pE == ']') {
+//        retValue += '[';
+//        pE -= 2;
+//    }
+//    assert(pS < pE);
+//    if (strncmp(pS, "int", 3) == 0) {
+//        retValue += 'I';
+//    } else if (strncmp(pS, "float", 5) == 0) {
+//        retValue += 'F';
+//    } else if (strncmp(pS, "char", 4) == 0) {
+//        retValue += 'C';
+//    } else if (strncmp(pS, "short", 5) == 0) {
+//        retValue += 'S';
+//    } else if (strncmp(pS, "boolean", 7) == 0) {
+//        retValue += 'Z';
+//    } else if (strncmp(pS, "byte", 4) == 0) {
+//        retValue += 'B';
+//    } else if (strncmp(pS, "long", 4) == 0) {
+//        retValue += 'J';
+//    } else if (strncmp(pS, "double", 6) == 0) {
+//        retValue += 'D';
+//    } else {
+//        retValue += 'L';
+//    }
 
-    string retValue;
-    const char *pS = javaDesc.data();
-    const char *pE = pS + javaDesc.size() - 1;
-    while (pS <= pE && *pE == ']') {
-        retValue += '[';
-        pE -= 2;
-    }
-    assert(pS < pE);
-    if (strncmp(pS, "int", 3) == 0) {
-        retValue += 'I';
-    } else if (strncmp(pS, "float", 5) == 0) {
-        retValue += 'F';
-    } else if (strncmp(pS, "char", 4) == 0) {
-        retValue += 'C';
-    } else if (strncmp(pS, "short", 5) == 0) {
-        retValue += 'S';
-    } else if (strncmp(pS, "boolean", 7) == 0) {
-        retValue += 'Z';
-    } else if (strncmp(pS, "byte", 4) == 0) {
-        retValue += 'B';
-    } else if (strncmp(pS, "long", 4) == 0) {
-        retValue += 'J';
-    } else if (strncmp(pS, "double", 6) == 0) {
-        retValue += 'D';
-    } else {
-        retValue += 'L';
-    }
-    return retValue;
+    (*env).ReleaseStringUTFChars(utfString, javaDescChars);
+    (*env).DeleteLocalRef(utfString);
+    (*env).DeleteLocalRef(cClass);
+    return retVal;
 }
 
 void deleteVmMethod(const VmMethod *method) {

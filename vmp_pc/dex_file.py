@@ -2040,6 +2040,7 @@ class JNIFuncBuilder:
 
             self.jni_func_buf += """
                 jmethodID m_jni_method = (*env).GetMethodID(clazz_type, "{method_name}", "{method_sign}");
+                (*env).DeleteLocalRef(clazz_type);
                 // init method
                 const VmMethod *method = initVmMethod(m_jni_method);
                 jvalue retValue;
@@ -2051,7 +2052,7 @@ class JNIFuncBuilder:
             jvalue_type = JNIFuncBuilder.format_jvalue_type(self.dex.get_string_by_type_idx(proto_id.return_type_idx))
             if jvalue_type:
                 self.jni_func_buf += """
-                    return retValue.{jvalue_type};
+                return retValue.{jvalue_type};
                 """.format(jvalue_type=jvalue_type)
 
             self.jni_func_buf += '}'

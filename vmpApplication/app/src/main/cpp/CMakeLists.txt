@@ -24,6 +24,7 @@ add_library( # Sets the name of the library.
         Util.cpp
         VMInterpreter.cpp
         So.cpp
+        NoDebug.cpp
         )
 
 

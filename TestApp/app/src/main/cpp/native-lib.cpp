@@ -15,9 +15,17 @@ Java_com_chend_testapp_MainActivity_stringFromJNI(
     string hello = "Hello from C++";
     return env->NewStringUTF(hello.c_str());
 }
+
 extern "C"
-JNIEXPORT jint JNICALL
-Java_com_chend_testapp_MainActivity_size(JNIEnv *env, jobject thiz, jobjectArray a) {
-    // TODO: implement size()
-    return (*env).GetArrayLength(a);
+JNIEXPORT void JNICALL
+Java_com_chend_testapp_MainActivity_testOOM(JNIEnv *env, jobject thiz) {
+
+
+    jarray jarray1 = nullptr;
+    for(int i=0;i<50; i++){
+        jarray1 = (*env).NewByteArray(1024*1024*10);
+        LOG_D("i: %d", i);
+        (*env).DeleteLocalRef(jarray1);
+    }
+    LOG_D("ok");
 }

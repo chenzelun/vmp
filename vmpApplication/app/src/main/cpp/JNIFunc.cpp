@@ -1,7 +1,7 @@
 
                  
             //
-            // Created by ChenDalunlun on 2019-10-15.
+            // Created by ChenDalunlun on 2019-10-21.
             //
             
             #include "JNIFunc.h"
@@ -20,6 +20,7 @@
                 LOG_D("jni function start: %s", __func__);
                 jclass clazz_type = (*env).GetObjectClass(instance);
                 jmethodID m_jni_method = (*env).GetMethodID(clazz_type, "onClick", "(Landroid/view/View;)V");
+                (*env).DeleteLocalRef(clazz_type);
                 // init method
                 const VmMethod *method = initVmMethod(m_jni_method);
                 jvalue retValue;
@@ -37,6 +38,7 @@
                 LOG_D("jni function start: %s", __func__);
                 jclass clazz_type = (*env).GetObjectClass(instance);
                 jmethodID m_jni_method = (*env).GetMethodID(clazz_type, "AES128Encrypt", "([B[B[B)[B");
+                (*env).DeleteLocalRef(clazz_type);
                 // init method
                 const VmMethod *method = initVmMethod(m_jni_method);
                 jvalue retValue;
@@ -44,7 +46,7 @@
                 deleteVmMethod(method);
                 LOG_D("jni function finish");
             
-                    return retValue.l;
+                return retValue.l;
                 }
                 
                 extern "C"
@@ -56,6 +58,7 @@
                 LOG_D("jni function start: %s", __func__);
                 jclass clazz_type = (*env).GetObjectClass(instance);
                 jmethodID m_jni_method = (*env).GetMethodID(clazz_type, "createFile", "(Ljava/io/File;J)V");
+                (*env).DeleteLocalRef(clazz_type);
                 // init method
                 const VmMethod *method = initVmMethod(m_jni_method);
                 jvalue retValue;
@@ -73,6 +76,7 @@
                 LOG_D("jni function start: %s", __func__);
                 jclass clazz_type = (*env).GetObjectClass(instance);
                 jmethodID m_jni_method = (*env).GetMethodID(clazz_type, "matrixMultiple", "([[I[[I)[[I");
+                (*env).DeleteLocalRef(clazz_type);
                 // init method
                 const VmMethod *method = initVmMethod(m_jni_method);
                 jvalue retValue;
@@ -80,7 +84,7 @@
                 deleteVmMethod(method);
                 LOG_D("jni function finish");
             
-                    return retValue.l;
+                return retValue.l;
                 }
                 
                 extern "C"
@@ -92,6 +96,7 @@
                 LOG_D("jni function start: %s", __func__);
                 jclass clazz_type = (*env).GetObjectClass(instance);
                 jmethodID m_jni_method = (*env).GetMethodID(clazz_type, "onCreate", "(Landroid/os/Bundle;)V");
+                (*env).DeleteLocalRef(clazz_type);
                 // init method
                 const VmMethod *method = initVmMethod(m_jni_method);
                 jvalue retValue;

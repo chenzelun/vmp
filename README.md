@@ -1,6 +1,19 @@
 # vmp
 vmp509
 
+2019.10.21
+ok:
+    1.android 4.5.6 local ref table is ok
+    2.out of memory is ok_1 by lazy free, sometimes OOM occurred.
+    but we should dynamic free memory by parse dex insns.
+
+todo:
+    1.encrypt and sign
+    2.nodebug
+    3.file encrypt
+    4.config the function
+    5.dynamic free memory by parse dex insns
+
 2019.10.15
 ok:
     1.android 9 ok_1

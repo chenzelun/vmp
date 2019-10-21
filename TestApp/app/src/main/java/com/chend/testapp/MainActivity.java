@@ -25,15 +25,18 @@ public class MainActivity extends AppCompatActivity {
         tv.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                testOOM();
                 Intent intent = new Intent(MainActivity.this, Main2Activity.class);
                 startActivity(intent);
             }
         });
 
-        for (int i = 0; i < 20; i++) {
-            System.out.println(" " + i + ": " + size(new double[(i + 1) * 1024][1024]));
+        byte[] data = null;
+        for (int i = 0; i < 50; i++) {
+            data = new byte[10 * 1024 * 1024];
+            System.out.println(" i: " + i);
         }
-        System.out.println("ok");
+        System.out.println("2048: " + data[2048]);
     }
 
     /**
@@ -42,5 +45,6 @@ public class MainActivity extends AppCompatActivity {
      */
     public native String stringFromJNI();
 
-    public native int size(double[][] a);
+
+    public native void testOOM();
 }

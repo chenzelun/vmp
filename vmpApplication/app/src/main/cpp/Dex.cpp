@@ -624,7 +624,7 @@ bool hookOpenDexFilesFromOat() {
 
 void fillBackMethodInsns(const char *descriptor) {
     string className = descriptor;
-    LOG_D("link class: %s", descriptor);
+//    LOG_D("link class: %s", descriptor);
     reverse(className.begin(), className.end());
     auto it = gDexFileHelper->methodInsns.find(className);
     if (it != gDexFileHelper->methodInsns.end()) {

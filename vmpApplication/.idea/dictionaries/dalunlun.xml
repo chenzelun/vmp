@@ -20,6 +20,8 @@
       <w>extinfo</w>
       <w>fdlinkstr</w>
       <w>fileb</w>
+      <w>fromrtype</w>
+      <w>fromvtype</w>
       <w>fstat</w>
       <w>ftype</w>
       <w>ifield</w>
@@ -58,6 +60,8 @@
       <w>strncmp</w>
       <w>teensy</w>
       <w>thiz</w>
+      <w>tortype</w>
+      <w>tovtype</w>
       <w>uint</w>
       <w>unop</w>
       <w>ushr</w>
