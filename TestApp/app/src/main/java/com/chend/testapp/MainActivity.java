@@ -7,6 +7,12 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.TextView;
 
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.Arrays;
+
 public class MainActivity extends AppCompatActivity {
 
     // Used to load the 'native-lib' library on application startup.
@@ -25,7 +31,37 @@ public class MainActivity extends AppCompatActivity {
         tv.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                testOOM();
+
+                String testStr = "hello world";
+                try {
+                    File filesDir = getFilesDir();
+                    File test = new File(filesDir.getAbsolutePath() + "/test.txt");
+                    FileWriter writer = new FileWriter(test);
+                    writer.write(testStr);
+                    writer.flush();
+                    writer.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                System.out.println("str: " + testStr);
+                System.out.println("len: " + testStr.length());
+
+                char[] buf = new char[1024];
+                int count = -1;
+                try {
+                    File filesDir = getFilesDir();
+                    File test = new File(filesDir.getAbsolutePath() + "/test.txt");
+                    FileReader reader = new FileReader(test);
+                    count = reader.read(buf);
+                    reader.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+                buf[count] = '\0';
+                System.out.println("str: " + Arrays.toString(buf));
+                System.out.println("len: " + count);
+
                 Intent intent = new Intent(MainActivity.this, Main2Activity.class);
                 startActivity(intent);
             }
@@ -37,6 +73,7 @@ public class MainActivity extends AppCompatActivity {
             System.out.println(" i: " + i);
         }
         System.out.println("2048: " + data[2048]);
+
     }
 
     /**
@@ -45,6 +82,4 @@ public class MainActivity extends AppCompatActivity {
      */
     public native String stringFromJNI();
 
-
-    public native void testOOM();
 }

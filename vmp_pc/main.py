@@ -12,7 +12,7 @@ if __name__ == '__main__':
                     APK_TMP_SHELL,
                     APK_TMP_IN,
                     APK_OUT,
-                    # APK_IN,
+                    APK_IN,
                     APK_SHELL]:
         for tmp_file in os.listdir(tmp_dir):
             tmp_abs_path = tmp_dir + '/' + tmp_file
@@ -30,7 +30,7 @@ if __name__ == '__main__':
         shell_apk_path = shell_app_base_dir + r'\app\build\outputs\apk\debug\app-debug.apk'
 
         # cp in apk
-        # shutil.copyfile(in_apk_path, APK_IN + r'\app-debug.apk')
+        shutil.copyfile(in_apk_path, APK_IN + r'\app-debug.apk')
 
         shell = Shell()
         shell.unzip_in_apk()
@@ -72,7 +72,7 @@ if __name__ == '__main__':
                         APK_TMP_SHELL,
                         APK_TMP_IN,
                         APK_OUT,
-                        # APK_IN,
+                        APK_IN,
                         APK_SHELL]:
             for tmp_file in os.listdir(tmp_dir):
                 tmp_abs_path = tmp_dir + '/' + tmp_file

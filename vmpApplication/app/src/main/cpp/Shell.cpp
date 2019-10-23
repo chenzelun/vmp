@@ -6,6 +6,8 @@
 #include "Config.h"
 #include "Dex.h"
 #include "So.h"
+#include "NoDebug.h"
+#include "File.h"
 #include <android/api-level.h>
 
 
@@ -18,6 +20,9 @@ SoFileHelper* gSoFileHelper = nullptr;
 
 void __attribute__((constructor)) beforeJNI_OnLoad(){
     LOG_D("init");
+
+//    protect_ndebug(getDataDir(env).data());
+//    protect_jdebug();
     //hookMmap();
 }
 
@@ -180,6 +185,8 @@ jint JNI_OnLoad(JavaVM *vm, void *unused) {
         return JNI_ERR;
     }
     assert(env != nullptr);
+
+    hookFileIO();
 
     initConfigFileProxy(&gConfigFileProxy, env);
     buildFileSystem();

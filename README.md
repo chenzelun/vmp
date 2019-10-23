@@ -1,6 +1,10 @@
 # vmp
 vmp509
 
+2019.10.23
+
+ok：nodebug ok
+
 2019.10.21
 ok:
     1.android 4.5.6 local ref table is ok
